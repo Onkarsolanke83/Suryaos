@@ -896,6 +896,8 @@ const SESSION_KEY = 'SuryaOS2026@AIC-MITADT-Pune';
 const HASH_PREFIX = 'sha256:';
 const ACTIVE_USER_KEY = 'suryaos.activeUser';
 const ACTIVE_PAGE_KEY = 'suryaos.activePage';
+const PRESENCE_PING_MS = 15000;
+const PRESENCE_STALE_MS = 5 * 60 * 1000;
 
 function _encLegacy(s) {
   if (!s) return '';
@@ -2078,6 +2080,7 @@ export default function SuryaOS() {
         pass: migratedHash,
         status: 'online',
         loginTime: now,
+        activityAt: now,
         totalLogins: (prev[username].totalLogins || 0) + 1,
         sessions: [...(prev[username].sessions || []), { login: now, logout: null }]
       }
@@ -2101,6 +2104,7 @@ export default function SuryaOS() {
         ...prev[user],
         status: 'offline',
         lastSeen: now,
+        activityAt: null,
         sessions: prev[user].sessions.map((s, i, arr) => 
           i === arr.length - 1 ? { ...s, logout: now } : s
         )
@@ -2118,6 +2122,113 @@ export default function SuryaOS() {
     setSessionTime(0);
     toast('Logged out successfully', 'info');
   }, [user, sessionTime, sessionInterval, addLog, toast]);
+
+  const touchPresence = useCallback(() => {
+    if (!user) return;
+
+    const now = new Date().toISOString();
+    setUsers(prev => {
+      const current = prev[user];
+      if (!current) return prev;
+
+      const alreadyFresh = current.status === 'online' && current.activityAt === now;
+      if (alreadyFresh) return prev;
+
+      return {
+        ...prev,
+        [user]: {
+          ...current,
+          status: 'online',
+          loginTime: current.loginTime || now,
+          activityAt: now
+        }
+      };
+    });
+  }, [user]);
+
+  // Keep current user's presence alive while app is open and active.
+  useEffect(() => {
+    if (!user) return;
+
+    touchPresence();
+    lastActivityPingRef.current = Date.now();
+
+    const maybePing = () => {
+      const nowMs = Date.now();
+      if (nowMs - lastActivityPingRef.current < PRESENCE_PING_MS) return;
+      lastActivityPingRef.current = nowMs;
+      touchPresence();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        maybePing();
+      }
+    };
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        maybePing();
+      }
+    }, PRESENCE_PING_MS);
+
+    window.addEventListener('focus', maybePing);
+    window.addEventListener('click', maybePing);
+    window.addEventListener('keydown', maybePing);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', maybePing);
+      window.removeEventListener('click', maybePing);
+      window.removeEventListener('keydown', maybePing);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [user, touchPresence]);
+
+  // Auto-correct stale online users (e.g. browser/tab closed without explicit logout).
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const sweepStalePresence = () => {
+      const nowMs = Date.now();
+      setUsers(prev => {
+        let changed = false;
+        const next = { ...prev };
+
+        for (const [uid, member] of Object.entries(prev)) {
+          if (member?.status !== 'online') continue;
+
+          const basis = member.activityAt || member.loginTime;
+          if (!basis) continue;
+          const basisMs = new Date(basis).getTime();
+          if (Number.isNaN(basisMs)) continue;
+
+          if (nowMs - basisMs <= PRESENCE_STALE_MS) continue;
+
+          const offlineAt = new Date().toISOString();
+          const sessions = Array.isArray(member.sessions)
+            ? member.sessions.map((s, i, arr) => (i === arr.length - 1 && !s.logout ? { ...s, logout: offlineAt } : s))
+            : member.sessions;
+
+          next[uid] = {
+            ...member,
+            status: 'offline',
+            lastSeen: offlineAt,
+            activityAt: null,
+            sessions
+          };
+          changed = true;
+        }
+
+        return changed ? next : prev;
+      });
+    };
+
+    sweepStalePresence();
+    const interval = setInterval(sweepStalePresence, 30000);
+    return () => clearInterval(interval);
+  }, [isHydrated]);
 
   // Session Timer
   useEffect(() => {
