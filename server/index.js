@@ -24,6 +24,18 @@ const hasRealSupabaseKey =
   typeof SUPABASE_SERVICE_ROLE_KEY === 'string' &&
   SUPABASE_SERVICE_ROLE_KEY.length > 20 &&
   !SUPABASE_SERVICE_ROLE_KEY.includes('YOUR_SUPABASE_SERVICE_ROLE_KEY');
+const decodedSupabaseKeyRole = (() => {
+  if (!hasRealSupabaseKey) return null;
+  try {
+    const tokenParts = SUPABASE_SERVICE_ROLE_KEY.split('.');
+    if (tokenParts.length < 2) return null;
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64url').toString('utf8'));
+    return payload?.role || null;
+  } catch {
+    return null;
+  }
+})();
+const hasServiceRoleKey = decodedSupabaseKeyRole === 'service_role';
 const hasSupabase = hasRealSupabaseUrl && hasRealSupabaseKey;
 
 const supabase = hasSupabase
@@ -35,7 +47,19 @@ const supabase = hasSupabase
     })
   : null;
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+const CORS_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+const corsAllowedOrigins = new Set([
+  'http://localhost:3000',
+  FRONTEND_URL,
+  ...CORS_ALLOWED_ORIGINS
+]);
+
 const app = express();
 const sseClients = new Set();
 const startedAt = new Date().toISOString();
@@ -45,7 +69,22 @@ let lastMirrorStatus = {
   details: null
 };
 
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    // Allow non-browser tooling plus configured frontend origins.
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (corsAllowedOrigins.has(origin) || origin.endsWith('.onrender.com')) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS blocked origin: ${origin}`));
+  }
+}));
 app.use(express.json({ limit: '10mb' }));
 
 function ensureStorage() {
@@ -406,7 +445,17 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'surya-os-api',
+    topology: {
+      mode: 'single-instance',
+        frontendUrl: FRONTEND_URL,
+        backendUrl: BACKEND_URL
+    },
     persistence: hasSupabase ? 'supabase' : 'file',
+    supabase: {
+      configured: hasSupabase,
+      keyRole: decodedSupabaseKeyRole,
+      serviceRoleReady: hasServiceRoleKey
+    },
     time: new Date().toISOString()
   });
 });
@@ -560,6 +609,9 @@ app.listen(PORT, () => {
   ensureStorage();
   if (!hasSupabase) {
     console.warn('Supabase env missing. Falling back to local file storage at server/data/state.json');
+  } else if (!hasServiceRoleKey) {
+    console.warn('Supabase key role is not service_role. API writes may fail with RLS until SUPABASE_SERVICE_ROLE_KEY is corrected.');
   }
-  console.log(`Surya OS backend running on http://localhost:${PORT}`);
+  console.log(`Surya OS backend running on ${BACKEND_URL}`);
+  console.log(`Primary frontend URL allowed by CORS: ${FRONTEND_URL}`);
 });

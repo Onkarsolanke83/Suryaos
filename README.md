@@ -161,6 +161,18 @@ Backend API runs at `http://localhost:4000` with:
 - `GET /api/state`
 - `PUT /api/state`
 
+### Single-Instance Topology (Fixed URLs)
+
+Surya OS now runs in strict single-instance mode for local deployment stability:
+
+- Frontend URL: `http://localhost:3000`
+- Backend URL: `http://localhost:4000`
+- Vite dev server uses strict port binding (won't auto-shift to another port)
+- Backend always binds to port `4000`
+- API CORS allows only `http://localhost:3000` (plus non-browser server-to-server checks)
+
+This removes multi-port drift and keeps team presence/session visibility consistent across users.
+
 ### Supabase Setup
 
 1. Create a new Supabase project.
@@ -183,15 +195,23 @@ npm run build
 npm start
 ```
 
-### Default Login Credentials
+## 📈 Team Pulse Weekly Workflow
 
-| Username | Role | Password |
-|----------|------|----------|
-| onkar | Founder & CEO | solar123 |
-| riya | CTO | solar123 |
-| aman | Lead Developer | solar123 |
-| priya | HR Manager | solar123 |
-| dr.desai | Technical Advisor | solar123 |
+Team Pulse includes a weekly operations workflow for leadership reviews:
+
+1. Open **Team Pulse → Weekly**.
+2. Track per-member weekly counters:
+  - Active time (from login/logout sessions)
+  - Tasks done
+  - Leads added
+  - Ideas submitted
+3. Update weekly goal progress with `+1 / -1` controls.
+4. Mark strategy items as `done` / `active`.
+5. Use **Start New Week** to reset weekly goal counters and restart the cycle.
+
+Automatic safeguard:
+- At the start of a new calendar week, the system auto-resets the weekly cycle if needed.
+
 
 ---
 

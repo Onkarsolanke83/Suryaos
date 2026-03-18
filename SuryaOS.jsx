@@ -1608,6 +1608,11 @@ export default function SuryaOS() {
   const [aicChecklist, setAicChecklist] = useState(INITIAL_AIC_CHECKLIST);
   const [weeklyGoals, setWeeklyGoals] = useState(INITIAL_WEEKLY_GOALS);
   const [strategyItems, setStrategyItems] = useState(INITIAL_STRATEGY_ITEMS);
+  const [weeklyCycle, setWeeklyCycle] = useState(() => ({
+    weekStart: getStartOfWeek().toISOString().slice(0, 10),
+    lastResetAt: null,
+    resetBy: null
+  }));
   const [log, setLog] = useState(INITIAL_LOG);
   const [leadScores, setLeadScores] = useState(LEAD_SCORES);
 
@@ -1721,6 +1726,7 @@ export default function SuryaOS() {
     if (state.aicChecklist) setAicChecklist(state.aicChecklist);
     if (state.weeklyGoals) setWeeklyGoals(state.weeklyGoals);
     if (state.strategyItems) setStrategyItems(state.strategyItems);
+    if (state.weeklyCycle) setWeeklyCycle(state.weeklyCycle);
     if (state.log) setLog(state.log);
     if (state.leadScores) setLeadScores(state.leadScores);
   }, []);
@@ -1848,6 +1854,7 @@ export default function SuryaOS() {
         aicChecklist,
         weeklyGoals,
         strategyItems,
+        weeklyCycle,
         log,
         leadScores
       };
@@ -1892,6 +1899,7 @@ export default function SuryaOS() {
     aicChecklist,
     weeklyGoals,
     strategyItems,
+    weeklyCycle,
     log,
     leadScores
   ]);
@@ -1905,6 +1913,45 @@ export default function SuryaOS() {
       return newLog.slice(0, 300);
     });
   }, []);
+
+  const resetWeeklyCycle = useCallback((reason = 'manual') => {
+    const nextWeekStart = getStartOfWeek().toISOString().slice(0, 10);
+    const resetAt = new Date().toISOString();
+    const actor = user || 'system';
+
+    setWeeklyGoals(prev => prev.map(goal => ({ ...goal, current: 0 })));
+    setStrategyItems(prev => prev.map(item => ({
+      ...item,
+      status: item.status === 'archived' ? 'archived' : 'active'
+    })));
+    setWeeklyCycle({
+      weekStart: nextWeekStart,
+      lastResetAt: resetAt,
+      resetBy: actor
+    });
+
+    addLog(actor, 'weekly_reset', `Started weekly cycle from ${nextWeekStart} (${reason})`);
+    if (reason === 'manual') {
+      toast('Weekly cycle reset. Team Pulse counters restarted.', 'success');
+    }
+  }, [user, addLog, toast]);
+
+  const adjustWeeklyGoalProgress = useCallback((goalId, delta) => {
+    setWeeklyGoals(prev => prev.map(goal => {
+      if (goal.id !== goalId) return goal;
+      const nextCurrent = Math.max(0, (Number(goal.current) || 0) + delta);
+      return { ...goal, current: nextCurrent };
+    }));
+  }, []);
+
+  const toggleStrategyStatus = useCallback((itemId) => {
+    setStrategyItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const nextStatus = item.status === 'done' ? 'active' : 'done';
+      addLog(user || 'system', 'strategy_status', `${item.title} marked ${nextStatus}`);
+      return { ...item, status: nextStatus };
+    }));
+  }, [user, addLog]);
 
   const fetchSystemDiagnostics = useCallback(async () => {
     setSystemDiagLoading(true);
@@ -2096,6 +2143,16 @@ export default function SuryaOS() {
     if (adminTab !== 'system') return;
     fetchSystemDiagnostics();
   }, [isCEO, adminTab, fetchSystemDiagnostics]);
+
+  // Automatically start a new weekly cycle when calendar week changes.
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const currentWeekStart = getStartOfWeek().toISOString().slice(0, 10);
+    if (weeklyCycle?.weekStart !== currentWeekStart) {
+      resetWeeklyCycle('automatic');
+    }
+  }, [isHydrated, weeklyCycle?.weekStart, resetWeeklyCycle]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MODAL HELPERS
@@ -2440,7 +2497,8 @@ Return format:
   const exportData = () => {
     const data = {
       users, tasks, projects, ideas, leads, content, messages, posts, depts, log,
-      followups, callNotes, n8nFlows, notionPages, sessions, aicChecklist
+      followups, callNotes, n8nFlows, notionPages, sessions, aicChecklist,
+      weeklyGoals, strategyItems, weeklyCycle
     };
     const encoded = 'SURYAOS_E2E_V5:' + btoa(encodeURIComponent(JSON.stringify(data)));
     const blob = new Blob([encoded], { type: 'application/octet-stream' });
@@ -2541,20 +2599,6 @@ Return format:
             <Sun size={18} />
             Login to Surya OS
           </button>
-
-          <div style={{ marginTop: 32, padding: 16, background: 'var(--bg2)', borderRadius: 10 }}>
-            <p style={{ color: 'var(--tx3)', fontSize: 11, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Demo Credentials
-            </p>
-            <div style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--tx2)' }}>
-              <div><strong style={{ color: 'var(--sun)' }}>onkar</strong> — CEO (full access)</div>
-              <div><strong style={{ color: 'var(--green)' }}>riya</strong> — Sales Head</div>
-              <div><strong style={{ color: 'var(--pink)' }}>aman</strong> — Marketing</div>
-              <div><strong style={{ color: 'var(--blue)' }}>priya</strong> — Operations</div>
-              <div><strong style={{ color: 'var(--purple)' }}>dr.desai</strong> — Mentor</div>
-              <div style={{ marginTop: 4, color: 'var(--tx3)' }}>Password: <code style={{ color: 'var(--sun)' }}>solar123</code></div>
-            </div>
-          </div>
 
           <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--tx3)', fontSize: 11 }}>
             SuryaSetu Energy Solutions © 2026 — AIC-MIT ADT Incubated
@@ -4155,6 +4199,7 @@ Return format:
 
     const pulseTabList = [
       { id: 'overview', label: 'Overview', icon: Users },
+      { id: 'weekly', label: 'Weekly', icon: Target },
       { id: 'tracking', label: 'Work Tracking', icon: Clock },
       { id: 'performance', label: 'Performance', icon: BarChart3 },
       { id: 'activity', label: 'Activity Log', icon: Activity }
@@ -4169,6 +4214,39 @@ Return format:
 
     const statusColors = { online: '#00D68F', busy: '#FFB547', offline: '#6B7280' };
     const memberEntries = Object.entries(users).filter(([_, u]) => u.active !== false);
+    const weekStartDate = (() => {
+      const source = weeklyCycle?.weekStart ? new Date(`${weeklyCycle.weekStart}T00:00:00`) : getStartOfWeek();
+      return Number.isNaN(source.getTime()) ? getStartOfWeek() : source;
+    })();
+    const weekStartMs = weekStartDate.getTime();
+    const weekLogEntries = log.filter(entry => {
+      const tsMs = new Date(entry.time).getTime();
+      return !Number.isNaN(tsMs) && tsMs >= weekStartMs;
+    });
+    const weeklyMemberStats = memberEntries.map(([uid, userData]) => {
+      const weeklyMinutes = getWeeklyMinutesFromSessions(userData.sessions, weekStartDate);
+      const tasksDone = weekLogEntries.filter(e => e.user === uid && e.action === 'task_done').length;
+      const leadsAdded = weekLogEntries.filter(e => e.user === uid && e.action === 'lead_add').length;
+      const ideasSubmitted = weekLogEntries.filter(e => e.user === uid && e.action === 'idea_submit').length;
+      return {
+        uid,
+        userData,
+        weeklyMinutes,
+        tasksDone,
+        leadsAdded,
+        ideasSubmitted
+      };
+    });
+    const weeklyMinutesTotal = weeklyMemberStats.reduce((acc, row) => acc + row.weeklyMinutes, 0);
+    const weeklyGoalRate = weeklyGoals.length > 0
+      ? Math.round(
+        weeklyGoals.reduce((acc, goal) => {
+          const target = Math.max(1, Number(goal.target) || 0);
+          const pct = Math.min(100, Math.round(((Number(goal.current) || 0) / target) * 100));
+          return acc + pct;
+        }, 0) / weeklyGoals.length
+      )
+      : 0;
 
     return (
       <div className="page-container">
@@ -4276,6 +4354,132 @@ Return format:
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Weekly Tab */}
+        {pulseTab === 'weekly' && (
+          <div style={{ display: 'grid', gap: 20 }}>
+            <div className="grid-3">
+              <div className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginBottom: 6 }}>Weekly Window</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{fd2(weekStartDate.toISOString())}</div>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginTop: 4 }}>Start of current cycle</div>
+              </div>
+              <div className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginBottom: 6 }}>Team Active Time</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{minutesToLabel(weeklyMinutesTotal)}</div>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginTop: 4 }}>From all session logs this week</div>
+              </div>
+              <div className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginBottom: 6 }}>Goals Completion</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{weeklyGoalRate}%</div>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', marginTop: 4 }}>
+                  Last reset: {weeklyCycle?.lastResetAt ? ts(weeklyCycle.lastResetAt) : 'never'}
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Users size={18} /> Weekly Member Counters
+                </h3>
+                <button
+                  className="btn btn-red btn-sm"
+                  onClick={() => resetWeeklyCycle('manual')}
+                >
+                  <RefreshCw size={14} /> Start New Week
+                </button>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--tx2)', fontWeight: 500 }}>Member</th>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--tx2)', fontWeight: 500 }}>Active Time</th>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--tx2)', fontWeight: 500 }}>Tasks Done</th>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--tx2)', fontWeight: 500 }}>Leads Added</th>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--tx2)', fontWeight: 500 }}>Ideas Submitted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeklyMemberStats.map(row => (
+                    <tr key={row.uid} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 8px' }}>{row.userData.name}</td>
+                      <td style={{ padding: '10px 8px', fontWeight: 600 }}>{minutesToLabel(row.weeklyMinutes)}</td>
+                      <td style={{ padding: '10px 8px' }}>{row.tasksDone}</td>
+                      <td style={{ padding: '10px 8px' }}>{row.leadsAdded}</td>
+                      <td style={{ padding: '10px 8px' }}>{row.ideasSubmitted}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid-2">
+              <div className="card" style={{ padding: 20 }}>
+                <h3 style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Target size={18} /> Weekly Goals
+                </h3>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {weeklyGoals.map(goal => {
+                    const target = Math.max(1, Number(goal.target) || 0);
+                    const current = Math.max(0, Number(goal.current) || 0);
+                    const progress = Math.min(100, Math.round((current / target) * 100));
+                    return (
+                      <div key={goal.id} style={{ padding: 12, borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{goal.title}</div>
+                            <div style={{ fontSize: 12, color: 'var(--tx2)' }}>
+                              Owner: {users[goal.owner]?.name || goal.owner || 'Unassigned'}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{current}/{target} {goal.unit}</div>
+                            <div style={{ fontSize: 12, color: 'var(--tx2)' }}>{progress}%</div>
+                          </div>
+                        </div>
+                        <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 8 }}>
+                          <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, var(--sun), var(--green))' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-ghost btn-xs" onClick={() => adjustWeeklyGoalProgress(goal.id, -1)}>-1</button>
+                          <button className="btn btn-green btn-xs" onClick={() => adjustWeeklyGoalProgress(goal.id, 1)}>+1</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: 20 }}>
+                <h3 style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <GitBranch size={18} /> Weekly Strategy Items
+                </h3>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {strategyItems.map(item => (
+                    <div key={item.id} style={{ padding: 12, borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{item.title}</div>
+                          <div style={{ fontSize: 12, color: 'var(--tx2)' }}>
+                            Owner: {users[item.owner]?.name || item.owner || 'Unassigned'}
+                          </div>
+                        </div>
+                        <span className={`badge badge-${item.status === 'done' ? 'green' : 'blue'}`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <p style={{ margin: '8px 0 10px', fontSize: 13, color: 'var(--tx2)' }}>{item.detail}</p>
+                      <button className="btn btn-sm btn-ghost" onClick={() => toggleStrategyStatus(item.id)}>
+                        {item.status === 'done' ? 'Re-open' : 'Mark Done'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

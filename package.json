@@ -8,6 +8,7 @@
     "server": "node server/index.js",
     "start": "node server/index.js",
     "audit:data": "node scripts/audit-system-data.mjs",
+    "uat:final": "node scripts/final-uat.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

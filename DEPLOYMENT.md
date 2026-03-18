@@ -50,3 +50,39 @@ Check:
 - Restrict CORS to your production domain.
 - Add rate limiting to API routes.
 - Add error monitoring (Sentry/Logflare).
+
+## 7) Free Deployment (Render)
+
+This project includes `render.yaml` for one-click setup on Render free plan.
+
+### A) Push code to GitHub
+
+```bash
+git add .
+git commit -m "Prepare free Render deployment"
+git push origin main
+```
+
+### B) Create service on Render
+
+1. Open Render dashboard.
+2. Click **New +** -> **Blueprint**.
+3. Connect your GitHub repo.
+4. Render will detect `render.yaml` and create the web service.
+
+### C) Set required environment variables in Render
+
+- `SUPABASE_URL` = your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` = service role key (must have JWT role `service_role`)
+- `FRONTEND_URL` = your Render app URL, e.g. `https://surya-os.onrender.com`
+- `BACKEND_URL` = same URL as above
+- `CORS_ALLOWED_ORIGINS` = optional comma-separated list for extra domains
+
+### D) Verify after deploy
+
+1. Open your app URL.
+2. Check `${APP_URL}/api/health` returns `ok: true`.
+3. Confirm:
+	- `persistence: "supabase"`
+	- `supabase.serviceRoleReady: true`
+4. Run a login, add/update/delete cycle, and verify refresh persistence.
