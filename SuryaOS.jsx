@@ -1682,7 +1682,7 @@ export default function SuryaOS() {
   const [callNoteForm, setCallNoteForm] = useState({ lid: '', outcome: 'neutral', nextDate: '', notes: '' });
   const [taskForm, setTaskForm] = useState({ name: '', ow: '', dept: '', pri: 'med', due: '', idea: '' });
   const [projectForm, setProjectForm] = useState({ name: '', cat: '', st: 'planning', prog: 0, own: '', pri: 'med', due: '', desc: '', impact: '', block: '' });
-  const [userForm, setUserForm] = useState({ username: '', name: '', role: 'member', dept: '', phone: '', bio: '', pass: '' });
+  const [userForm, setUserForm] = useState({ username: '', name: '', role: 'member', dept: '', phone: '', bio: '', pass: '', clearPass: false });
   const [deptForm, setDeptForm] = useState({ name: '', desc: '', head: '', emoji: '📁' });
   const [autoForm, setAutoForm] = useState({ name: '', trigger: '', action: '', webhook: '', st: 'planned' });
   const [ceoComment, setCeoComment] = useState({});
@@ -2072,12 +2072,10 @@ export default function SuryaOS() {
 
     // Login success
     const now = new Date().toISOString();
-    const migratedHash = _isHashedPassword(userData.pass) ? userData.pass : await _hashPassword(loginPass);
     setUsers(prev => ({
       ...prev,
       [username]: {
         ...prev[username],
-        pass: migratedHash,
         status: 'online',
         loginTime: now,
         activityAt: now,
@@ -2339,8 +2337,8 @@ export default function SuryaOS() {
       setProjectForm(data ? { name: data.name, cat: data.cat, st: data.st, prog: data.prog, own: data.own, pri: data.pri, due: data.due, desc: data.desc, impact: data.impact, block: data.block || '' }
                           : { name: '', cat: '', st: 'planning', prog: 0, own: '', pri: 'med', due: '', desc: '', impact: '', block: '' });
     } else if (name === 'm-user') {
-      setUserForm(data ? { username: data.id, name: data.name, role: data.role, dept: data.dept, phone: data.phone || '', bio: data.bio || '', pass: '' }
-                       : { username: '', name: '', role: 'member', dept: '', phone: '', bio: '', pass: '' });
+      setUserForm(data ? { username: data.id, name: data.name, role: data.role, dept: data.dept, phone: data.phone || '', bio: data.bio || '', pass: '', clearPass: false }
+                       : { username: '', name: '', role: 'member', dept: '', phone: '', bio: '', pass: '', clearPass: false });
     } else if (name === 'm-dept') {
       setDeptForm(data ? { name: data.name, desc: data.desc, head: data.head, emoji: data.emoji }
                        : { name: '', desc: '', head: '', emoji: '📁' });
@@ -7247,8 +7245,18 @@ Return format:
                     type="password"
                     placeholder={modalData?.id ? 'Leave blank to keep current password' : 'Initial password'}
                     value={userForm.pass}
-                    onChange={(e) => setUserForm({ ...userForm, pass: e.target.value })}
+                    onChange={(e) => setUserForm({ ...userForm, pass: e.target.value, clearPass: false })}
                   />
+                  {modalData?.id && isCEO && (
+                    <label style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--tx2)', fontSize: 12 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(userForm.clearPass)}
+                        onChange={(e) => setUserForm({ ...userForm, clearPass: e.target.checked, pass: e.target.checked ? '' : userForm.pass })}
+                      />
+                      Remove current password for this user
+                    </label>
+                  )}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 12 }}>
@@ -7257,12 +7265,26 @@ Return format:
                   if (!userForm.username || !userForm.name) { toast('Username and name required', 'warning'); return; }
                   if (!modalData?.id && !userForm.pass) { toast('Password required', 'warning'); return; }
                   if (modalData?.id) {
-                    const passwordUpdate = isCEO && userForm.pass ? { pass: await _hashPassword(userForm.pass) } : {};
+                    const shouldSetPassword = isCEO && Boolean(userForm.pass);
+                    const shouldClearPassword = isCEO && Boolean(userForm.clearPass) && !shouldSetPassword;
+                    const hashedPassword = shouldSetPassword ? await _hashPassword(userForm.pass) : null;
                     setUsers(prev => ({
                       ...prev,
-                      [modalData.id]: { ...prev[modalData.id], name: userForm.name, role: userForm.role, dept: userForm.dept, phone: userForm.phone, bio: userForm.bio, ...passwordUpdate }
+                      [modalData.id]: (() => {
+                        const updated = {
+                          ...prev[modalData.id],
+                          name: userForm.name,
+                          role: userForm.role,
+                          dept: userForm.dept,
+                          phone: userForm.phone,
+                          bio: userForm.bio
+                        };
+                        if (hashedPassword) updated.pass = hashedPassword;
+                        if (shouldClearPassword) delete updated.pass;
+                        return updated;
+                      })()
                     }));
-                    toast('Member updated!', 'success');
+                    toast(shouldClearPassword ? 'Member updated. Password removed.' : 'Member updated!', 'success');
                   } else {
                     if (users[userForm.username]) { toast('Username already exists', 'error'); return; }
                     const initials = userForm.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
