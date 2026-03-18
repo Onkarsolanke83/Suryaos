@@ -1058,6 +1058,24 @@ function minutesToLabel(mins) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function normalizeTaskOwnerId(rawOwner, usersMap = {}) {
+  if (!rawOwner) return '';
+
+  const owner = String(rawOwner).trim();
+  if (!owner) return '';
+
+  if (usersMap[owner]) return owner;
+
+  const ownerLower = owner.toLowerCase();
+  const byId = Object.keys(usersMap).find((id) => id.toLowerCase() === ownerLower);
+  if (byId) return byId;
+
+  const byName = Object.entries(usersMap).find(([, u]) => (u?.name || '').toLowerCase() === ownerLower);
+  if (byName) return byName[0];
+
+  return owner;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIAL DATA — PRE-SEEDED
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1667,13 +1685,17 @@ export default function SuryaOS() {
   const [autoForm, setAutoForm] = useState({ name: '', trigger: '', action: '', webhook: '', st: 'planned' });
   const [ceoComment, setCeoComment] = useState({});
 
+  const getTaskOwnerId = useCallback((task) => {
+    return normalizeTaskOwnerId(task?.ow ?? task?.owner ?? '', users);
+  }, [users]);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // BADGES (computed)
   // ═══════════════════════════════════════════════════════════════════════════
   const badges = useMemo(() => {
     const overdueFollowups = followups.filter(f => !f.done && isOD(f.date)).length;
     const todayFollowups = followups.filter(f => !f.done && isToday(f.date)).length;
-    const myPendingTasks = user ? tasks.filter(t => !t.done && t.ow === user).length : 0;
+    const myPendingTasks = user ? tasks.filter(t => !t.done && getTaskOwnerId(t) === user).length : 0;
     const unreadMsgs = user ? Object.entries(messages).reduce((acc, [key, msgs]) => {
       if (key.includes(user)) {
         return acc + msgs.filter(m => m.from !== user && !m.read).length;
@@ -1690,7 +1712,30 @@ export default function SuryaOS() {
       ideas: pendingIdeas,
       projects: blockedProjects
     };
-  }, [followups, tasks, user, messages, ideas, projects]);
+  }, [followups, tasks, user, messages, ideas, projects, getTaskOwnerId]);
+
+  // Normalize task owner IDs so "My Tasks" remains correct even for legacy data shapes.
+  useEffect(() => {
+    if (!tasks.length) return;
+
+    setTasks((prev) => {
+      let changed = false;
+      const normalized = prev.map((task) => {
+        const ownerId = getTaskOwnerId(task);
+        const hadLegacyOwner = Object.prototype.hasOwnProperty.call(task, 'owner');
+
+        if (task.ow !== ownerId || hadLegacyOwner) {
+          changed = true;
+          const { owner, ...rest } = task;
+          return { ...rest, ow: ownerId };
+        }
+
+        return task;
+      });
+
+      return changed ? normalized : prev;
+    });
+  }, [tasks.length, users, getTaskOwnerId]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TOAST SYSTEM
@@ -1779,6 +1824,7 @@ export default function SuryaOS() {
       cancelled = true;
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
       }
     };
   }, [applyRemoteState]);
@@ -1836,6 +1882,9 @@ export default function SuryaOS() {
     }
 
     saveTimerRef.current = setTimeout(async () => {
+      // Timer has fired; clear the ref so pull/poll logic can continue.
+      saveTimerRef.current = null;
+
       const state = {
         users,
         leads,
@@ -1872,12 +1921,16 @@ export default function SuryaOS() {
         }
       } catch (err) {
         console.error('Failed to persist app state:', err);
+      } finally {
+        // Ensure ref is cleared even if save errors.
+        saveTimerRef.current = null;
       }
     }, 800);
 
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
       }
     };
   }, [
@@ -2169,7 +2222,7 @@ export default function SuryaOS() {
     } else if (name === 'm-callnote') {
       setCallNoteForm({ lid: data?.lid || '', outcome: 'neutral', nextDate: '', notes: '' });
     } else if (name === 'm-task') {
-      setTaskForm(data ? { name: data.name, ow: data.ow, dept: data.dept, pri: data.pri, due: data.due, idea: data.idea || '' } 
+      setTaskForm(data ? { name: data.name, ow: normalizeTaskOwnerId(data.ow || data.owner || '', users), dept: data.dept, pri: data.pri, due: data.due, idea: data.idea || '' } 
                        : { name: '', ow: '', dept: '', pri: 'med', due: '', idea: '' });
     } else if (name === 'm-project') {
       setProjectForm(data ? { name: data.name, cat: data.cat, st: data.st, prog: data.prog, own: data.own, pri: data.pri, due: data.due, desc: data.desc, impact: data.impact, block: data.block || '' }
@@ -2671,7 +2724,7 @@ Return format:
     const ideasProgress = Math.min(100, (ideas.length / 20) * 100); // 20 ideas target
 
     // My pending tasks
-    const myTasks = tasks.filter(t => t.ow === user && !t.done).slice(0, 5);
+    const myTasks = tasks.filter(t => getTaskOwnerId(t) === user && !t.done).slice(0, 5);
 
     // Recent activity
     const recentLog = log.slice(0, 8);
@@ -4334,7 +4387,7 @@ Return format:
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 16 }}>
                     <div style={{ textAlign: 'center', padding: 8, background: 'var(--bg-alt)', borderRadius: 6 }}>
                       <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--sun)' }}>
-                        {tasks.filter(t => t.ow === uid && t.done).length}/{tasks.filter(t => t.ow === uid).length}
+                        {tasks.filter(t => getTaskOwnerId(t) === uid && t.done).length}/{tasks.filter(t => getTaskOwnerId(t) === uid).length}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>Tasks</div>
                     </div>
@@ -4565,7 +4618,7 @@ Return format:
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {Object.entries(users).filter(([_, u]) => u.active !== false).map(([uid, userData]) => {
-                  const userTasks = tasks.filter(t => t.ow === uid);
+                  const userTasks = tasks.filter(t => getTaskOwnerId(t) === uid);
                   const completed = userTasks.filter(t => t.done).length;
                   const rate = userTasks.length > 0 ? Math.round((completed / userTasks.length) * 100) : 0;
                   
@@ -4630,7 +4683,7 @@ Return format:
 
                   if (idx === 0) {
                     memberEntries.forEach(([uid, userData]) => {
-                      const done = tasks.filter(t => t.ow === uid && t.done).length;
+                      const done = tasks.filter(t => getTaskOwnerId(t) === uid && t.done).length;
                       if (done > value) {
                         value = done;
                         winner = userData;
@@ -6038,7 +6091,7 @@ Return format:
                 </div>
                 <div style={{ textAlign: 'center', padding: 8, background: 'var(--bg-alt)', borderRadius: 6 }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)' }}>
-                    {tasks.filter(t => t.ow === userId && t.done).length}
+                    {tasks.filter(t => getTaskOwnerId(t) === userId && t.done).length}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)' }}>Tasks Done</div>
                 </div>
@@ -6229,7 +6282,7 @@ Return format:
   // ═══════════════════════════════════════════════════════════════════════════
   const renderTasks = () => {
     const filteredTasks = tasks.filter(t => {
-      if (taskFilter === 'mine') return t.ow === user;
+      if (taskFilter === 'mine') return getTaskOwnerId(t) === user;
       if (taskFilter === 'pending') return !t.done;
       if (taskFilter === 'done') return t.done;
       return true;
@@ -6284,7 +6337,8 @@ Return format:
         {/* Task List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filteredTasks.map(task => {
-            const owner = Object.entries(users).find(([id]) => id === task.ow)?.[1];
+            const ownerId = getTaskOwnerId(task);
+            const owner = Object.entries(users).find(([id]) => id === ownerId)?.[1];
             const isOverdue = !task.done && new Date(task.due) < new Date();
             
             return (
@@ -6869,11 +6923,16 @@ Return format:
                 <button className="btn btn-ghost" onClick={cm}>Cancel</button>
                 <button className="btn btn-primary" onClick={() => {
                   if (!taskForm.name) { toast('Task name required', 'warning'); return; }
+                  if (!taskForm.ow) { toast('Assignee required', 'warning'); return; }
+                  const normalizedTaskForm = {
+                    ...taskForm,
+                    ow: normalizeTaskOwnerId(taskForm.ow, users)
+                  };
                   if (modalData?.id) {
-                    setTasks(prev => prev.map(t => t.id === modalData.id ? { ...t, ...taskForm } : t));
+                    setTasks(prev => prev.map(t => t.id === modalData.id ? { ...t, ...normalizedTaskForm } : t));
                     toast('Task updated!', 'success');
                   } else {
-                    setTasks(prev => [...prev, { id: genId(), ...taskForm, done: false }]);
+                    setTasks(prev => [...prev, { id: genId(), ...normalizedTaskForm, done: false }]);
                     toast('Task created!', 'success');
                     addLog(user, 'create_task', `Created task: ${taskForm.name}`);
                   }
