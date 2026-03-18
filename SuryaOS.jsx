@@ -1049,6 +1049,15 @@ function getStartOfWeek(baseDate = new Date()) {
   return d;
 }
 
+function toLocalYmd(dateValue) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function getWeeklyMinutesFromSessions(sessions, weekStart, nowMs = Date.now()) {
   if (!Array.isArray(sessions) || sessions.length === 0) return 0;
 
@@ -1647,7 +1656,7 @@ export default function SuryaOS() {
   const [weeklyGoals, setWeeklyGoals] = useState(INITIAL_WEEKLY_GOALS);
   const [strategyItems, setStrategyItems] = useState(INITIAL_STRATEGY_ITEMS);
   const [weeklyCycle, setWeeklyCycle] = useState(() => ({
-    weekStart: getStartOfWeek().toISOString().slice(0, 10),
+    weekStart: toLocalYmd(getStartOfWeek()),
     lastResetAt: null,
     resetBy: null
   }));
@@ -2020,7 +2029,7 @@ export default function SuryaOS() {
   }, []);
 
   const resetWeeklyCycle = useCallback((reason = 'manual') => {
-    const nextWeekStart = getStartOfWeek().toISOString().slice(0, 10);
+    const nextWeekStart = toLocalYmd(getStartOfWeek());
     const resetAt = new Date().toISOString();
     const actor = user || 'system';
 
@@ -2396,7 +2405,7 @@ export default function SuryaOS() {
   useEffect(() => {
     if (!isHydrated) return;
 
-    const currentWeekStart = getStartOfWeek().toISOString().slice(0, 10);
+    const currentWeekStart = toLocalYmd(getStartOfWeek());
     if (weeklyCycle?.weekStart !== currentWeekStart) {
       resetWeeklyCycle('automatic');
     }
