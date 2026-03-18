@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Home, Lightbulb, GitBranch, Crown, FolderKanban, CheckSquare, Users, 
   MessageSquare, Brain, Zap, Rocket, Target, BarChart3, Trophy, User, 
@@ -893,8 +893,11 @@ const globalStyles = `
 // ENCRYPTION SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════════
 const SESSION_KEY = 'SuryaOS2026@AIC-MITADT-Pune';
+const HASH_PREFIX = 'sha256:';
+const ACTIVE_USER_KEY = 'suryaos.activeUser';
+const ACTIVE_PAGE_KEY = 'suryaos.activePage';
 
-function _enc(s) {
+function _encLegacy(s) {
   if (!s) return '';
   let result = '';
   for (let i = 0; i < s.length; i++) {
@@ -904,7 +907,7 @@ function _enc(s) {
   return result;
 }
 
-function _dec(e) {
+function _decLegacy(e) {
   if (!e) return '';
   try {
     let result = '';
@@ -918,8 +921,28 @@ function _dec(e) {
   }
 }
 
-function _chk(hash, plain) {
-  return _dec(hash) === plain;
+async function _hashPassword(plain) {
+  if (!plain) return '';
+  const enc = new TextEncoder().encode(plain);
+  const digest = await crypto.subtle.digest('SHA-256', enc);
+  const bytes = Array.from(new Uint8Array(digest));
+  const hex = bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${HASH_PREFIX}${hex}`;
+}
+
+function _isHashedPassword(hash) {
+  return typeof hash === 'string' && hash.startsWith(HASH_PREFIX);
+}
+
+async function _chk(hash, plain) {
+  if (!hash) return false;
+
+  if (_isHashedPassword(hash)) {
+    const candidate = await _hashPassword(plain);
+    return candidate === hash;
+  }
+
+  return _decLegacy(hash) === plain;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -997,13 +1020,51 @@ function formatDuration(ms) {
   return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
 }
 
+function getStartOfWeek(baseDate = new Date()) {
+  const d = new Date(baseDate);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function getWeeklyMinutesFromSessions(sessions, weekStart, nowMs = Date.now()) {
+  if (!Array.isArray(sessions) || sessions.length === 0) return 0;
+
+  const weekStartMs = weekStart.getTime();
+  let total = 0;
+
+  for (const session of sessions) {
+    if (!session?.login) continue;
+    const startMs = new Date(session.login).getTime();
+    const endMs = session.logout ? new Date(session.logout).getTime() : nowMs;
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) continue;
+    if (endMs <= startMs) continue;
+
+    const boundedStart = Math.max(startMs, weekStartMs);
+    if (endMs <= boundedStart) continue;
+
+    total += Math.floor((endMs - boundedStart) / 60000);
+  }
+
+  return total;
+}
+
+function minutesToLabel(mins) {
+  const safe = Number.isFinite(mins) ? Math.max(0, Math.floor(mins)) : 0;
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIAL DATA — PRE-SEEDED
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const INITIAL_USERS = {
   onkar: {
-    pass: _enc('solar123'),
+    pass: _encLegacy('solar123'),
     name: 'Onkar Jadhav',
     role: 'owner',
     dept: 'CEO',
@@ -1019,7 +1080,7 @@ const INITIAL_USERS = {
     sessions: []
   },
   riya: {
-    pass: _enc('solar123'),
+    pass: _encLegacy('solar123'),
     name: 'Riya Sharma',
     role: 'manager',
     dept: 'Sales',
@@ -1035,7 +1096,7 @@ const INITIAL_USERS = {
     sessions: []
   },
   aman: {
-    pass: _enc('solar123'),
+    pass: _encLegacy('solar123'),
     name: 'Aman Deshmukh',
     role: 'member',
     dept: 'Marketing',
@@ -1051,7 +1112,7 @@ const INITIAL_USERS = {
     sessions: []
   },
   priya: {
-    pass: _enc('solar123'),
+    pass: _encLegacy('solar123'),
     name: 'Priya Kulkarni',
     role: 'member',
     dept: 'Operations',
@@ -1067,7 +1128,7 @@ const INITIAL_USERS = {
     sessions: []
   },
   'dr.desai': {
-    pass: _enc('solar123'),
+    pass: _encLegacy('solar123'),
     name: 'Dr. Vikram Desai',
     role: 'mentor',
     dept: 'Advisory',
@@ -1421,6 +1482,57 @@ const INITIAL_LOG = [
   { user: 'onkar', action: 'idea_submit', detail: 'Submitted: Community Solar Co-op Model', time: '2026-03-11T11:00:00' }
 ];
 
+const INITIAL_WEEKLY_GOALS = [
+  {
+    id: 'wg1',
+    title: 'Qualified Leads',
+    target: 30,
+    current: 0,
+    unit: 'leads',
+    owner: 'riya'
+  },
+  {
+    id: 'wg2',
+    title: 'Content Outputs',
+    target: 8,
+    current: 0,
+    unit: 'assets',
+    owner: 'aman'
+  },
+  {
+    id: 'wg3',
+    title: 'Site Visits Completed',
+    target: 12,
+    current: 0,
+    unit: 'visits',
+    owner: 'priya'
+  }
+];
+
+const INITIAL_STRATEGY_ITEMS = [
+  {
+    id: 'st1',
+    title: 'Win Hot Leads in 24h',
+    owner: 'riya',
+    status: 'active',
+    detail: 'Every hot lead gets call + WhatsApp + proposal on same day.'
+  },
+  {
+    id: 'st2',
+    title: 'Proof-Driven Content Sprint',
+    owner: 'aman',
+    status: 'active',
+    detail: 'Publish before/after bill stories and 2 customer testimonials this week.'
+  },
+  {
+    id: 'st3',
+    title: 'Install Quality Playbook',
+    owner: 'priya',
+    status: 'active',
+    detail: 'Standardize pre-install checklist and reduce rework to near zero.'
+  }
+];
+
 const LEAD_SCORES = {};
 
 // WhatsApp Templates
@@ -1457,15 +1569,24 @@ export default function SuryaOS() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   // Auth State
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(ACTIVE_USER_KEY) || null;
+  });
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [showPass, setShowPass] = useState(false);
 
   // App State
-  const [page, setPage] = useState('home');
+  const [page, setPage] = useState(() => {
+    if (typeof window === 'undefined') return 'home';
+    return localStorage.getItem(ACTIVE_PAGE_KEY) || 'home';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
   const [sessionTime, setSessionTime] = useState(0);
   const [sessionInterval, setSessionIntervalId] = useState(null);
 
@@ -1485,6 +1606,8 @@ export default function SuryaOS() {
   const [depts, setDepts] = useState(INITIAL_DEPTS);
   const [sessions, setSessions] = useState(INITIAL_SESSIONS);
   const [aicChecklist, setAicChecklist] = useState(INITIAL_AIC_CHECKLIST);
+  const [weeklyGoals, setWeeklyGoals] = useState(INITIAL_WEEKLY_GOALS);
+  const [strategyItems, setStrategyItems] = useState(INITIAL_STRATEGY_ITEMS);
   const [log, setLog] = useState(INITIAL_LOG);
   const [leadScores, setLeadScores] = useState(LEAD_SCORES);
 
@@ -1495,6 +1618,11 @@ export default function SuryaOS() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [apiKey, setApiKey] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const saveTimerRef = useRef(null);
+  const lastServerUpdatedAtRef = useRef(null);
+  const suppressNextSaveRef = useRef(false);
+  const lastActivityPingRef = useRef(0);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -1510,6 +1638,9 @@ export default function SuryaOS() {
   const [expandedFAQ, setExpandedFAQ] = useState(null);
   const [autoTab, setAutoTab] = useState('flows');
   const [adminTab, setAdminTab] = useState('overview');
+  const [systemDiag, setSystemDiag] = useState(null);
+  const [systemDiagLoading, setSystemDiagLoading] = useState(false);
+  const [systemDiagError, setSystemDiagError] = useState('');
 
   // Messages State
   const [activeChat, setActiveChat] = useState(null);
@@ -1567,6 +1698,204 @@ export default function SuryaOS() {
     }, 2800);
   }, []);
 
+  const applyRemoteState = useCallback((state) => {
+    if (!state || typeof state !== 'object') return;
+
+    // Avoid immediate re-save loop when applying server updates.
+    suppressNextSaveRef.current = true;
+
+    if (state.users) setUsers(state.users);
+    if (state.leads) setLeads(state.leads);
+    if (state.ideas) setIdeas(state.ideas);
+    if (state.tasks) setTasks(state.tasks);
+    if (state.projects) setProjects(state.projects);
+    if (state.followups) setFollowups(state.followups);
+    if (state.callNotes) setCallNotes(state.callNotes);
+    if (state.messages) setMessages(state.messages);
+    if (state.posts) setPosts(state.posts);
+    if (state.n8nFlows) setN8nFlows(state.n8nFlows);
+    if (state.notionPages) setNotionPages(state.notionPages);
+    if (state.content) setContent(state.content);
+    if (state.depts) setDepts(state.depts);
+    if (state.sessions) setSessions(state.sessions);
+    if (state.aicChecklist) setAicChecklist(state.aicChecklist);
+    if (state.weeklyGoals) setWeeklyGoals(state.weeklyGoals);
+    if (state.strategyItems) setStrategyItems(state.strategyItems);
+    if (state.log) setLog(state.log);
+    if (state.leadScores) setLeadScores(state.leadScores);
+  }, []);
+
+  const pullLatestState = useCallback(async () => {
+    try {
+      const res = await fetch('/api/state');
+      if (!res.ok) return;
+
+      const payload = await res.json();
+      const incomingUpdatedAt = payload?.updatedAt || null;
+
+      if (!incomingUpdatedAt || incomingUpdatedAt === lastServerUpdatedAtRef.current) {
+        return;
+      }
+
+      lastServerUpdatedAtRef.current = incomingUpdatedAt;
+      applyRemoteState(payload?.state);
+    } catch (err) {
+      console.error('Failed to pull latest app state:', err);
+    }
+  }, [applyRemoteState]);
+
+  // Load persisted app state from backend on startup
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateState = async () => {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error(`State fetch failed: ${res.status}`);
+
+        const payload = await res.json();
+        const state = payload?.state;
+        lastServerUpdatedAtRef.current = payload?.updatedAt || null;
+        if (!state || typeof state !== 'object') {
+          return;
+        }
+        applyRemoteState(state);
+      } catch (err) {
+        console.error('Failed to hydrate app state:', err);
+      } finally {
+        if (!cancelled) setIsHydrated(true);
+      }
+    };
+
+    hydrateState();
+
+    return () => {
+      cancelled = true;
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [applyRemoteState]);
+
+  // Pull updates from server so multiple logged-in users stay in sync.
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const poll = async () => {
+      // Skip pull while a local save is queued.
+      if (saveTimerRef.current) return;
+
+      pullLatestState();
+    };
+
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, [isHydrated, pullLatestState]);
+
+  // Real-time cross-user sync via server-sent events.
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const events = new EventSource('/api/events');
+
+    const onStateUpdated = () => {
+      // Avoid pulling while a local save is queued.
+      if (saveTimerRef.current) return;
+      pullLatestState();
+    };
+
+    events.addEventListener('state_updated', onStateUpdated);
+
+    events.onerror = () => {
+      // Polling remains active as fallback if SSE reconnects slowly.
+    };
+
+    return () => {
+      events.removeEventListener('state_updated', onStateUpdated);
+      events.close();
+    };
+  }, [isHydrated, pullLatestState]);
+
+  // Persist app state to backend whenever core data changes
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false;
+      return;
+    }
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(async () => {
+      const state = {
+        users,
+        leads,
+        ideas,
+        tasks,
+        projects,
+        followups,
+        callNotes,
+        messages,
+        posts,
+        n8nFlows,
+        notionPages,
+        content,
+        depts,
+        sessions,
+        aicChecklist,
+        weeklyGoals,
+        strategyItems,
+        log,
+        leadScores
+      };
+
+      try {
+        const res = await fetch('/api/state', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state })
+        });
+
+        if (res.ok) {
+          const payload = await res.json();
+          lastServerUpdatedAtRef.current = payload?.updatedAt || lastServerUpdatedAtRef.current;
+        }
+      } catch (err) {
+        console.error('Failed to persist app state:', err);
+      }
+    }, 800);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [
+    isHydrated,
+    users,
+    leads,
+    ideas,
+    tasks,
+    projects,
+    followups,
+    callNotes,
+    messages,
+    posts,
+    n8nFlows,
+    notionPages,
+    content,
+    depts,
+    sessions,
+    aicChecklist,
+    weeklyGoals,
+    strategyItems,
+    log,
+    leadScores
+  ]);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // LOGGING
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1575,6 +1904,21 @@ export default function SuryaOS() {
       const newLog = [{ user: username, action, detail, time: new Date().toISOString() }, ...prev];
       return newLog.slice(0, 300);
     });
+  }, []);
+
+  const fetchSystemDiagnostics = useCallback(async () => {
+    setSystemDiagLoading(true);
+    setSystemDiagError('');
+    try {
+      const res = await fetch('/api/diagnostics');
+      if (!res.ok) throw new Error(`Diagnostics fetch failed: ${res.status}`);
+      const payload = await res.json();
+      setSystemDiag(payload);
+    } catch (err) {
+      setSystemDiagError(err.message || 'Failed to load diagnostics');
+    } finally {
+      setSystemDiagLoading(false);
+    }
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1587,10 +1931,23 @@ export default function SuryaOS() {
     return () => clearInterval(interval);
   }, []);
 
+  // Keep sidebar behavior responsive across desktop/mobile widths
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTH FUNCTIONS
   // ═══════════════════════════════════════════════════════════════════════════
-  const doLogin = useCallback(() => {
+  const doLogin = useCallback(async () => {
     setLoginError('');
     const username = loginUser.toLowerCase().trim();
     const userData = users[username];
@@ -1605,17 +1962,20 @@ export default function SuryaOS() {
       return;
     }
 
-    if (!_chk(userData.pass, loginPass)) {
+    const isValidPassword = await _chk(userData.pass, loginPass);
+    if (!isValidPassword) {
       setLoginError('Incorrect password');
       return;
     }
 
     // Login success
     const now = new Date().toISOString();
+    const migratedHash = _isHashedPassword(userData.pass) ? userData.pass : await _hashPassword(loginPass);
     setUsers(prev => ({
       ...prev,
       [username]: {
         ...prev[username],
+        pass: migratedHash,
         status: 'online',
         loginTime: now,
         totalLogins: (prev[username].totalLogins || 0) + 1,
@@ -1651,6 +2011,10 @@ export default function SuryaOS() {
     if (sessionInterval) clearInterval(sessionInterval);
     setUser(null);
     setPage('home');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+      localStorage.removeItem(ACTIVE_PAGE_KEY);
+    }
     setSessionTime(0);
     toast('Logged out successfully', 'info');
   }, [user, sessionTime, sessionInterval, addLog, toast]);
@@ -1676,7 +2040,7 @@ export default function SuryaOS() {
     const role = users[user]?.role;
     const mentor = users[user]?.isMentor;
     
-    const ceoOnlyPages = ['admin', 'people', 'departments', 'ceo-board'];
+    const ceoOnlyPages = ['admin', 'people', 'departments', 'ceo-board', 'pulse'];
     
     if (mentor) {
       return ['home', 'strategy', 'mentors'].includes(pageName);
@@ -1688,6 +2052,50 @@ export default function SuryaOS() {
     
     return true;
   }, [user, users]);
+
+  // Persist session identity so refresh keeps user logged in.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (user) {
+      localStorage.setItem(ACTIVE_USER_KEY, user);
+    } else {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+    }
+  }, [user]);
+
+  // Persist last page for logged-in user and recover on refresh.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (user) {
+      localStorage.setItem(ACTIVE_PAGE_KEY, page);
+    }
+  }, [user, page]);
+
+  // Validate restored session and page after hydration/user updates.
+  useEffect(() => {
+    if (!user) return;
+
+    const restoredUser = users[user];
+    if (!restoredUser || restoredUser.active === false) {
+      setUser(null);
+      setPage('home');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_USER_KEY);
+        localStorage.removeItem(ACTIVE_PAGE_KEY);
+      }
+      return;
+    }
+
+    if (!canAccess(page)) {
+      setPage('home');
+    }
+  }, [user, users, page, canAccess]);
+
+  useEffect(() => {
+    if (!isCEO) return;
+    if (adminTab !== 'system') return;
+    fetchSystemDiagnostics();
+  }, [isCEO, adminTab, fetchSystemDiagnostics]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MODAL HELPERS
@@ -1743,10 +2151,11 @@ export default function SuryaOS() {
       setPage(pg);
       setFilterTab('all');
       setSearchTerm('');
+      if (isMobile) setSidebarOpen(false);
     } else {
       toast('Access denied', 'error');
     }
-  }, [canAccess, toast]);
+  }, [canAccess, isMobile, toast]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AI FUNCTIONS
@@ -2173,7 +2582,7 @@ Return format:
     { id: 'crm', icon: Users, label: 'CRM Pipeline' },
     { id: 'followups', icon: Phone, label: 'Follow-ups', badge: badges.followups },
     { id: 'marketing', icon: Target, label: 'Marketing Studio' },
-    { id: 'pulse', icon: Activity, label: 'Team Pulse' },
+    ...(isCEO ? [{ id: 'pulse', icon: Activity, label: 'Team Pulse' }] : []),
     { id: 'messages', icon: MessageSquare, label: 'Messages', badge: badges.messages },
     { id: 'mentors', icon: Brain, label: 'Mentor Network' },
     { id: 'automations', icon: Zap, label: 'Automations' },
@@ -3733,34 +4142,23 @@ Return format:
   // RENDER: TEAM PULSE
   // ═══════════════════════════════════════════════════════════════════════════
   const renderTeamPulse = () => {
+    if (!isCEO) {
+      return (
+        <div className="page-container">
+          <div className="card" style={{ padding: 24 }}>
+            <h2 style={{ marginBottom: 8 }}>Access Restricted</h2>
+            <p style={{ color: 'var(--tx2)' }}>Team Pulse is only visible to CEO/Admin users.</p>
+          </div>
+        </div>
+      );
+    }
+
     const pulseTabList = [
       { id: 'overview', label: 'Overview', icon: Users },
       { id: 'tracking', label: 'Work Tracking', icon: Clock },
       { id: 'performance', label: 'Performance', icon: BarChart3 },
       { id: 'activity', label: 'Activity Log', icon: Activity }
     ];
-
-    // Get user status based on session
-    const getUserStatus = (userId) => {
-      const userSession = sessions.find(s => s.uid === userId && !s.out);
-      if (userSession) {
-        const mins = Math.floor((Date.now() - new Date(userSession.in).getTime()) / 60000);
-        return { status: mins < 30 ? 'online' : 'busy', session: userSession, mins };
-      }
-      return { status: 'offline', session: null, mins: 0 };
-    };
-
-    // Calculate user stats
-    const getUserStats = (userId) => {
-      const userTasks = tasks.filter(t => t.assignee === userId);
-      const userProjects = projects.filter(p => p.lead === userId || p.members?.includes(userId));
-      const userIdeas = ideas.filter(i => i.by === userId);
-      return {
-        tasks: { total: userTasks.length, done: userTasks.filter(t => t.status === 'done').length },
-        projects: { total: userProjects.length, active: userProjects.filter(p => p.status === 'active').length },
-        ideas: userIdeas.length
-      };
-    };
 
     // Format time
     const formatDuration = (mins) => {
@@ -3770,6 +4168,7 @@ Return format:
     };
 
     const statusColors = { online: '#00D68F', busy: '#FFB547', offline: '#6B7280' };
+    const memberEntries = Object.entries(users).filter(([_, u]) => u.active !== false);
 
     return (
       <div className="page-container">
@@ -3869,7 +4268,7 @@ Return format:
                     </div>
                     <div style={{ textAlign: 'center', padding: 8, background: 'var(--bg-alt)', borderRadius: 6 }}>
                       <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--green)' }}>
-                        {ideas.filter(i => i.by === uid).length}
+                        {ideas.filter(i => i.user === uid).length}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>Ideas</div>
                     </div>
@@ -3992,8 +4391,8 @@ Return format:
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {Object.entries(users).filter(([_, u]) => u.active !== false).map(([uid, userData]) => {
-                  const userIdeas = ideas.filter(i => i.by === uid).length;
-                  const maxIdeas = Math.max(...Object.keys(users).map(u => ideas.filter(i => i.by === u).length), 1);
+                  const userIdeas = ideas.filter(i => i.user === uid).length;
+                  const maxIdeas = Math.max(...Object.keys(users).map(u => ideas.filter(i => i.user === u).length), 1);
                   const rate = Math.round((userIdeas / maxIdeas) * 100);
                   
                   return (
@@ -4024,26 +4423,37 @@ Return format:
                 {['Tasks Champion', 'Idea Generator', 'Most Active'].map((title, idx) => {
                   let winner = null;
                   let value = 0;
-                  
+
                   if (idx === 0) {
-                    users.forEach(u => {
-                      const done = tasks.filter(t => t.assignee === u.id && t.status === 'done').length;
-                      if (done > value) { value = done; winner = u; }
+                    memberEntries.forEach(([uid, userData]) => {
+                      const done = tasks.filter(t => t.ow === uid && t.done).length;
+                      if (done > value) {
+                        value = done;
+                        winner = userData;
+                      }
                     });
                   } else if (idx === 1) {
-                    users.forEach(u => {
-                      const count = ideas.filter(i => i.by === u.id).length;
-                      if (count > value) { value = count; winner = u; }
+                    memberEntries.forEach(([uid, userData]) => {
+                      const count = ideas.filter(i => i.user === uid).length;
+                      if (count > value) {
+                        value = count;
+                        winner = userData;
+                      }
                     });
                   } else {
-                    users.forEach(u => {
-                      const mins = sessions.filter(s => s.uid === u.id).reduce((acc, s) => {
-                        const duration = s.out ? new Date(s.out) - new Date(s.in) : Date.now() - new Date(s.in);
-                        return acc + duration;
+                    memberEntries.forEach(([_, userData]) => {
+                      const minutes = (userData.sessions || []).reduce((acc, session) => {
+                        if (!session?.login) return acc;
+                        const start = new Date(session.login).getTime();
+                        const end = session.logout ? new Date(session.logout).getTime() : Date.now();
+                        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return acc;
+                        return acc + Math.floor((end - start) / 60000);
                       }, 0);
-                      if (mins > value) { value = mins; winner = u; }
+                      if (minutes > value) {
+                        value = minutes;
+                        winner = userData;
+                      }
                     });
-                    value = Math.floor(value / 3600000); // Convert to hours
                   }
                   
                   return (
@@ -4056,7 +4466,7 @@ Return format:
                       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>{title}</div>
                       <div style={{ fontSize: 16, fontWeight: 700 }}>{winner?.name || 'N/A'}</div>
                       <div style={{ fontSize: 14, color: 'var(--sun)' }}>
-                        {idx === 2 ? `${value}h logged` : `${value} ${idx === 0 ? 'tasks' : 'ideas'}`}
+                        {idx === 2 ? `${value} min active` : `${value} ${idx === 0 ? 'tasks' : 'ideas'}`}
                       </div>
                     </div>
                   );
@@ -5008,8 +5418,8 @@ Return format:
 
     const rolePermissions = {
       owner: ['all'],
-      manager: ['crm', 'followups', 'tasks', 'projects', 'ideas', 'messages', 'pulse', 'marketing'],
-      member: ['home', 'tasks', 'ideas', 'messages', 'pulse', 'profile'],
+      manager: ['crm', 'followups', 'tasks', 'projects', 'ideas', 'messages', 'marketing'],
+      member: ['home', 'tasks', 'ideas', 'messages', 'profile'],
       mentor: ['home', 'ideas', 'ceo-board', 'messages', 'profile']
     };
 
@@ -5028,7 +5438,8 @@ Return format:
             { id: 'overview', label: 'Overview', icon: LayoutDashboard },
             { id: 'access', label: 'Access Control', icon: Shield },
             { id: 'audit', label: 'Audit Log', icon: FileText },
-            { id: 'settings', label: 'Settings', icon: Settings }
+            { id: 'settings', label: 'Settings', icon: Settings },
+            { id: 'system', label: 'System Status', icon: Activity }
           ].map(tab => (
             <button
               key={tab.id}
@@ -5240,6 +5651,86 @@ Return format:
             </div>
           </div>
         )}
+
+        {/* System Status Tab */}
+        {adminTab === 'system' && (
+          <div className="card" style={{ padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Activity size={20} />
+                Live System Diagnostics
+              </h3>
+              <button className="btn btn-sm btn-ghost" onClick={fetchSystemDiagnostics} disabled={systemDiagLoading}>
+                {systemDiagLoading ? <span className="spinner" /> : <RefreshCw size={14} />}
+                Refresh
+              </button>
+            </div>
+
+            {systemDiagError && (
+              <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 13 }}>
+                {systemDiagError}
+              </div>
+            )}
+
+            {!systemDiag && !systemDiagLoading && !systemDiagError && (
+              <div style={{ color: 'var(--tx2)', fontSize: 13 }}>No diagnostics loaded yet.</div>
+            )}
+
+            {systemDiag && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+                  <div className="card" style={{ padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Persistence</div>
+                    <div style={{ marginTop: 4, fontWeight: 700 }}>{systemDiag.persistence || 'unknown'}</div>
+                  </div>
+                  <div className="card" style={{ padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--tx3)' }}>SSE Clients</div>
+                    <div style={{ marginTop: 4, fontWeight: 700 }}>{systemDiag.sseClients ?? 0}</div>
+                  </div>
+                  <div className="card" style={{ padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Normalized Ready</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: systemDiag.normalized?.ready ? '#00D68F' : '#EF4444' }}>
+                      {systemDiag.normalized?.ready ? 'Yes' : 'No'}
+                    </div>
+                  </div>
+                  <div className="card" style={{ padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Last Mirror</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: systemDiag.normalized?.lastMirrorStatus?.ok ? '#00D68F' : '#FFB547' }}>
+                      {systemDiag.normalized?.lastMirrorStatus?.ok === null ? 'N/A' : (systemDiag.normalized?.lastMirrorStatus?.ok ? 'OK' : 'Failed')}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--tx2)' }}>
+                  Started: {systemDiag.startedAt ? new Date(systemDiag.startedAt).toLocaleString('en-IN') : 'N/A'}
+                </div>
+
+                <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: 10 }}>Table</th>
+                        <th style={{ textAlign: 'left', padding: 10 }}>Status</th>
+                        <th style={{ textAlign: 'left', padding: 10 }}>Error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(systemDiag.normalized?.tables || []).map((row) => (
+                        <tr key={row.table} style={{ borderTop: '1px solid var(--border)' }}>
+                          <td style={{ padding: 10, fontSize: 13 }}>{row.table}</td>
+                          <td style={{ padding: 10, fontSize: 13, color: row.ok ? '#00D68F' : '#EF4444' }}>
+                            {row.ok ? 'OK' : 'Missing'}
+                          </td>
+                          <td style={{ padding: 10, fontSize: 12, color: 'var(--tx2)' }}>{row.error || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -5329,6 +5820,11 @@ Return format:
                 <p style={{ margin: 0, fontSize: 13, fontStyle: 'italic', color: 'var(--muted)' }}>
                   "{userData.bio}"
                 </p>
+                {isCEO && (
+                  <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--tx2)' }}>
+                    Password: <span style={{ color: 'var(--sun)', fontWeight: 600 }}>{_isHashedPassword(userData.pass) ? 'Hidden (secure hash)' : (_decLegacy(userData.pass) || 'Not set')}</span>
+                  </p>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 16 }}>
@@ -6367,13 +6863,15 @@ Return format:
                   onChange={(e) => setUserForm({ ...userForm, bio: e.target.value })}
                 />
               </div>
-              {!modalData?.id && (
+              {(!modalData?.id || isCEO) && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--tx2)', fontSize: 13 }}>Password *</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--tx2)', fontSize: 13 }}>
+                    {modalData?.id ? 'Set/Reset Password (CEO only)' : 'Password *'}
+                  </label>
                   <input
                     className="input"
                     type="password"
-                    placeholder="Initial password"
+                    placeholder={modalData?.id ? 'Leave blank to keep current password' : 'Initial password'}
                     value={userForm.pass}
                     onChange={(e) => setUserForm({ ...userForm, pass: e.target.value })}
                   />
@@ -6381,22 +6879,24 @@ Return format:
               )}
               <div style={{ display: 'flex', gap: 12 }}>
                 <button className="btn btn-ghost" onClick={cm}>Cancel</button>
-                <button className="btn btn-primary" onClick={() => {
+                <button className="btn btn-primary" onClick={async () => {
                   if (!userForm.username || !userForm.name) { toast('Username and name required', 'warning'); return; }
                   if (!modalData?.id && !userForm.pass) { toast('Password required', 'warning'); return; }
                   if (modalData?.id) {
+                    const passwordUpdate = isCEO && userForm.pass ? { pass: await _hashPassword(userForm.pass) } : {};
                     setUsers(prev => ({
                       ...prev,
-                      [modalData.id]: { ...prev[modalData.id], name: userForm.name, role: userForm.role, dept: userForm.dept, phone: userForm.phone, bio: userForm.bio }
+                      [modalData.id]: { ...prev[modalData.id], name: userForm.name, role: userForm.role, dept: userForm.dept, phone: userForm.phone, bio: userForm.bio, ...passwordUpdate }
                     }));
                     toast('Member updated!', 'success');
                   } else {
                     if (users[userForm.username]) { toast('Username already exists', 'error'); return; }
                     const initials = userForm.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                    const hashedPassword = await _hashPassword(userForm.pass);
                     setUsers(prev => ({
                       ...prev,
                       [userForm.username]: {
-                        pass: _enc(userForm.pass),
+                        pass: hashedPassword,
                         name: userForm.name,
                         role: userForm.role,
                         dept: userForm.dept,
@@ -6562,7 +7062,14 @@ Return format:
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside
+        className="sidebar"
+        style={{
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s ease',
+          width: 240
+        }}
+      >
         {/* Logo */}
         <div style={{ 
           padding: '20px 16px', 
@@ -6639,10 +7146,24 @@ Return format:
       </aside>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main
+        className="main-content"
+        style={{
+          marginLeft: isMobile ? 0 : (sidebarOpen ? 240 : 0),
+          width: isMobile ? '100%' : `calc(100% - ${sidebarOpen ? 240 : 0}px)`,
+          transition: 'margin-left 0.25s ease, width 0.25s ease'
+        }}
+      >
         {/* Topbar */}
         <header className="topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <button
+              className="btn btn-ghost btn-icon"
+              onClick={() => setSidebarOpen(prev => !prev)}
+              aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            >
+              <Menu size={18} />
+            </button>
             <h2 style={{ fontFamily: 'Syne', fontSize: 18, fontWeight: 700, color: 'var(--tx)' }}>
               {navItems.find(n => n.id === page)?.label || 'Surya OS'}
             </h2>
@@ -6697,6 +7218,18 @@ Return format:
           {renderPage()}
         </div>
       </main>
+
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            zIndex: 45
+          }}
+        />
+      )}
 
       {/* Modals */}
       {renderModals()}

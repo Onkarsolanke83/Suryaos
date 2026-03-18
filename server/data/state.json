@@ -1,0 +1,854 @@
+{
+  "state": {
+    "users": {
+      "onkar": {
+        "pass": "201a1e18137e6101",
+        "name": "Onkar Jadhav",
+        "role": "owner",
+        "dept": "CEO",
+        "av": "OJ",
+        "col": "#FF8C00",
+        "phone": "+91 98765 43210",
+        "bio": "Founder & CEO | Building Surya Energy to democratize solar in Tier 2/3 India",
+        "status": "online",
+        "active": true,
+        "loginTime": "2026-03-18T01:16:44.228Z",
+        "totalLogins": 48,
+        "lastSeen": "2026-03-11T18:30:00",
+        "sessions": [
+          {
+            "login": "2026-03-18T01:16:44.228Z",
+            "logout": null
+          }
+        ]
+      },
+      "riya": {
+        "pass": "201a1e18137e6101",
+        "name": "Riya Sharma",
+        "role": "manager",
+        "dept": "Sales",
+        "av": "RS",
+        "col": "#00D68F",
+        "phone": "+91 98765 43211",
+        "bio": "Sales Head | Closing deals and building customer relationships",
+        "status": "online",
+        "active": true,
+        "loginTime": "2026-03-18T00:19:21.408Z",
+        "totalLogins": 35,
+        "lastSeen": "2026-03-11T17:45:00",
+        "sessions": [
+          {
+            "login": "2026-03-18T00:19:21.408Z",
+            "logout": null
+          }
+        ]
+      },
+      "aman": {
+        "pass": "201a1e18137e6101",
+        "name": "Aman Deshmukh",
+        "role": "member",
+        "dept": "Marketing",
+        "av": "AD",
+        "col": "#EC4899",
+        "phone": "+91 98765 43212",
+        "bio": "Marketing Lead | Creating content that converts",
+        "status": "offline",
+        "active": true,
+        "loginTime": null,
+        "totalLogins": 28,
+        "lastSeen": "2026-03-11T16:20:00",
+        "sessions": []
+      },
+      "priya": {
+        "pass": "201a1e18137e6101",
+        "name": "Priya Kulkarni",
+        "role": "member",
+        "dept": "Operations",
+        "av": "PK",
+        "col": "#3B82F6",
+        "phone": "+91 98765 43213",
+        "bio": "Operations Manager | Making sure installations happen smoothly",
+        "status": "offline",
+        "active": true,
+        "loginTime": null,
+        "totalLogins": 22,
+        "lastSeen": "2026-03-11T15:00:00",
+        "sessions": []
+      },
+      "dr.desai": {
+        "pass": "201a1e18137e6101",
+        "name": "Dr. Vikram Desai",
+        "role": "mentor",
+        "dept": "Advisory",
+        "av": "VD",
+        "col": "#8B5CF6",
+        "phone": "+91 98765 43214",
+        "bio": "Industry Mentor | 20+ years in renewable energy sector",
+        "status": "offline",
+        "active": true,
+        "isMentor": true,
+        "loginTime": null,
+        "totalLogins": 8,
+        "lastSeen": "2026-03-10T14:00:00",
+        "sessions": []
+      }
+    },
+    "leads": [
+      {
+        "id": "ld1",
+        "name": "Rajesh Patil",
+        "area": "Hadapsar",
+        "size": "3kW",
+        "temp": "hot",
+        "stage": "proposal",
+        "val": 180000,
+        "notes": "Very interested. Bill ₹6000/month. Has terrace space. Wife also supportive."
+      },
+      {
+        "id": "ld2",
+        "name": "Sunita Joshi",
+        "area": "Pashan",
+        "size": "5kW+",
+        "temp": "hot",
+        "stage": "nego",
+        "val": 380000,
+        "notes": "Large bungalow. Wants premium panels. Ready to pay more for warranty."
+      },
+      {
+        "id": "ld3",
+        "name": "Amit Kulkarni",
+        "area": "Wagholi",
+        "size": "2kW",
+        "temp": "warm",
+        "stage": "site",
+        "val": 120000,
+        "notes": "New construction. Interested in subsidy. Site visit done."
+      },
+      {
+        "id": "ld4",
+        "name": "Sneha Deshpande",
+        "area": "Kharadi",
+        "size": "4kW",
+        "temp": "warm",
+        "stage": "contacted",
+        "val": 240000,
+        "notes": "IT professional. Understanding tech well. Comparing 3 vendors."
+      },
+      {
+        "id": "ld5",
+        "name": "Mahesh Gaikwad",
+        "area": "Loni Kalbhor",
+        "size": "3kW",
+        "temp": "cold",
+        "stage": "new",
+        "val": 165000,
+        "notes": "Farmer. Interested for irrigation pump. Need to explain ROI."
+      },
+      {
+        "id": "ld6",
+        "name": "Kavita Bhosale",
+        "area": "Baner",
+        "size": "5kW+",
+        "temp": "hot",
+        "stage": "site",
+        "val": 350000,
+        "notes": "Society president. If deal closes, can refer 10+ more installations."
+      },
+      {
+        "id": "ld7",
+        "name": "Vikrant Shah",
+        "area": "Hinjewadi",
+        "size": "2kW",
+        "temp": "warm",
+        "stage": "new",
+        "val": 90000,
+        "notes": "Flat owner. Interested in balcony solar. Need hybrid solution."
+      },
+      {
+        "id": "mmvcq0k2rpgjutb0j",
+        "name": "yash ",
+        "area": "manjari",
+        "size": "5kW+",
+        "temp": "warm",
+        "stage": "new",
+        "val": 10000000,
+        "notes": "buhsbdubsd"
+      }
+    ],
+    "ideas": [
+      {
+        "id": "idea1",
+        "user": "riya",
+        "cat": "Marketing",
+        "title": "WhatsApp Drip Campaign for Cold Leads",
+        "desc": "Automated 7-day WhatsApp sequence for cold leads with solar education content, testimonials, and ROI calculator link. Each message in Hinglish with engaging emoji.",
+        "st": "approved",
+        "ai": null,
+        "aiParsed": null,
+        "cc": "Love it! Start with top 50 cold leads.",
+        "tasks": [],
+        "created": "2026-03-08T10:00:00"
+      },
+      {
+        "id": "idea2",
+        "user": "aman",
+        "cat": "Content",
+        "title": "Before/After Solar Bill Reel Series",
+        "desc": "Instagram Reels showing actual customer electricity bills before and after installation. 30-sec format with voiceover explaining savings. Target 2 reels/week.",
+        "st": "building",
+        "ai": null,
+        "aiParsed": null,
+        "cc": "Approved. Aman lead this with Priya for customer stories.",
+        "tasks": [
+          "Collect 5 customer bills",
+          "Create reel template",
+          "Record first 2 reels"
+        ],
+        "created": "2026-03-05T14:30:00"
+      },
+      {
+        "id": "idea3",
+        "user": "priya",
+        "cat": "Operations",
+        "title": "AMC Auto-Reminder System",
+        "desc": "Automated reminder system for annual maintenance contracts. Send WhatsApp reminder 30 days before expiry, then at 15 days and 7 days. Include renewal discount offer.",
+        "st": "pending",
+        "ai": null,
+        "aiParsed": null,
+        "cc": null,
+        "tasks": [],
+        "created": "2026-03-10T09:15:00"
+      },
+      {
+        "id": "idea4",
+        "user": "onkar",
+        "cat": "Product",
+        "title": "Community Solar Co-op Model",
+        "desc": "For societies with 20+ flats, offer shared rooftop solar with proportional billing. One installation, multiple beneficiaries. Reduces per-household cost by 40%.",
+        "st": "pending",
+        "ai": null,
+        "aiParsed": null,
+        "cc": null,
+        "tasks": [],
+        "created": "2026-03-11T11:00:00"
+      }
+    ],
+    "tasks": [
+      {
+        "id": "tk1",
+        "name": "Follow up with Rajesh (Hadapsar)",
+        "ow": "riya",
+        "dept": "Sales",
+        "pri": "high",
+        "due": "2026-03-12",
+        "done": false,
+        "idea": null
+      },
+      {
+        "id": "tk2",
+        "name": "Prepare proposal for Sunita (5kW)",
+        "ow": "riya",
+        "dept": "Sales",
+        "pri": "high",
+        "due": "2026-03-13",
+        "done": false,
+        "idea": null
+      },
+      {
+        "id": "tk3",
+        "name": "Create Instagram content calendar",
+        "ow": "aman",
+        "dept": "Marketing",
+        "pri": "med",
+        "due": "2026-03-14",
+        "done": false,
+        "idea": null
+      },
+      {
+        "id": "tk4",
+        "name": "Coordinate site visit - Wagholi",
+        "ow": "priya",
+        "dept": "Operations",
+        "pri": "med",
+        "due": "2026-03-13",
+        "done": false,
+        "idea": null
+      },
+      {
+        "id": "tk5",
+        "name": "Update CRM with new leads",
+        "ow": "riya",
+        "dept": "Sales",
+        "pri": "low",
+        "due": "2026-03-15",
+        "done": true,
+        "idea": null
+      },
+      {
+        "id": "tk6",
+        "name": "Collect customer testimonials (3)",
+        "ow": "aman",
+        "dept": "Marketing",
+        "pri": "med",
+        "due": "2026-03-16",
+        "done": false,
+        "idea": "Before/After Solar Bill Reel Series"
+      },
+      {
+        "id": "tk7",
+        "name": "Finalize AIC pitch deck",
+        "ow": "onkar",
+        "dept": "CEO",
+        "pri": "high",
+        "due": "2026-03-18",
+        "done": false,
+        "idea": null
+      },
+      {
+        "id": "tk8",
+        "name": "Train installer team on new panels",
+        "ow": "priya",
+        "dept": "Operations",
+        "pri": "med",
+        "due": "2026-03-17",
+        "done": false,
+        "idea": null
+      }
+    ],
+    "projects": [
+      {
+        "id": "pj1",
+        "name": "Surya OS Development",
+        "cat": "Product",
+        "st": "active",
+        "prog": 65,
+        "own": "onkar",
+        "pri": "high",
+        "due": "2026-03-20",
+        "desc": "Internal team intelligence platform for unified operations",
+        "impact": "Team productivity +40%, Decision speed +60%",
+        "block": null,
+        "created": "2026-02-15T08:00:00"
+      },
+      {
+        "id": "pj2",
+        "name": "WhatsApp Automation Bot",
+        "cat": "Tech",
+        "st": "active",
+        "prog": 40,
+        "own": "onkar",
+        "pri": "high",
+        "due": "2026-03-25",
+        "desc": "Automated lead qualification and follow-up via WhatsApp Business API",
+        "impact": "Lead response time: 24hr → 2hr",
+        "block": "Waiting for WhatsApp Business API approval",
+        "created": "2026-02-20T10:00:00"
+      },
+      {
+        "id": "pj3",
+        "name": "AIC Grant Application",
+        "cat": "Business",
+        "st": "active",
+        "prog": 80,
+        "own": "onkar",
+        "pri": "high",
+        "due": "2026-03-15",
+        "desc": "₹10L seed grant application for AIC-MIT ADT",
+        "impact": "6-month runway, hire 2 team members",
+        "block": null,
+        "created": "2026-02-01T09:00:00"
+      },
+      {
+        "id": "pj4",
+        "name": "Customer Success Story Series",
+        "cat": "Marketing",
+        "st": "active",
+        "prog": 25,
+        "own": "aman",
+        "pri": "med",
+        "due": "2026-04-01",
+        "desc": "10-part video series featuring happy customers",
+        "impact": "Trust building, Conversion +15%",
+        "block": null,
+        "created": "2026-03-01T11:00:00"
+      },
+      {
+        "id": "pj5",
+        "name": "Installer Partner Network",
+        "cat": "Operations",
+        "st": "planning",
+        "prog": 10,
+        "own": "priya",
+        "pri": "med",
+        "due": "2026-04-15",
+        "desc": "Build network of 10 certified installers across Pune district",
+        "impact": "Installation capacity 3x",
+        "block": null,
+        "created": "2026-03-05T14:00:00"
+      },
+      {
+        "id": "pj6",
+        "name": "PM Surya Ghar Campaign",
+        "cat": "Sales",
+        "st": "active",
+        "prog": 50,
+        "own": "riya",
+        "pri": "high",
+        "due": "2026-03-31",
+        "desc": "Marketing campaign for PM Surya Ghar scheme awareness",
+        "impact": "Hot leads +100/month",
+        "block": null,
+        "created": "2026-03-02T10:00:00"
+      }
+    ],
+    "followups": [
+      {
+        "id": "fu1",
+        "lid": "ld1",
+        "date": "2026-03-11",
+        "type": "call",
+        "note": "Discuss final pricing",
+        "done": false,
+        "created": "2026-03-09T10:00:00"
+      },
+      {
+        "id": "fu2",
+        "lid": "ld2",
+        "date": "2026-03-12",
+        "type": "visit",
+        "note": "Site measurement visit",
+        "done": false,
+        "created": "2026-03-10T11:00:00"
+      },
+      {
+        "id": "fu3",
+        "lid": "ld3",
+        "date": "2026-03-14",
+        "type": "whatsapp",
+        "note": "Send subsidy documents",
+        "done": false,
+        "created": "2026-03-11T09:00:00"
+      },
+      {
+        "id": "fu4",
+        "lid": "ld6",
+        "date": "2026-03-10",
+        "type": "proposal",
+        "note": "Send society bulk proposal",
+        "done": false,
+        "created": "2026-03-08T14:00:00"
+      }
+    ],
+    "callNotes": [],
+    "messages": {
+      "aman:onkar": [
+        {
+          "from": "onkar",
+          "text": "Aman, how's the Instagram content going?",
+          "time": "2026-03-11T10:30:00",
+          "read": true
+        },
+        {
+          "from": "aman",
+          "text": "Good progress! 3 reels ready for review. Will share by EOD.",
+          "time": "2026-03-11T10:35:00",
+          "read": true
+        },
+        {
+          "from": "onkar",
+          "text": "Perfect. Also think about PM Surya Ghar angle for next week.",
+          "time": "2026-03-11T10:40:00",
+          "read": false
+        }
+      ],
+      "onkar:riya": [
+        {
+          "from": "riya",
+          "text": "Onkar, Sunita ji wants premium panels. Should I quote Adani or Tata?",
+          "time": "2026-03-11T14:00:00",
+          "read": true
+        },
+        {
+          "from": "onkar",
+          "text": "Go with Tata. Better warranty and their 5kW is competitively priced.",
+          "time": "2026-03-11T14:15:00",
+          "read": true
+        },
+        {
+          "from": "riya",
+          "text": "Got it. Will prepare proposal today.",
+          "time": "2026-03-11T14:20:00",
+          "read": true
+        },
+        {
+          "from": "onkar",
+          "text": "Great! This could be our biggest deal this month. Keep me posted.",
+          "time": "2026-03-11T14:25:00",
+          "read": false
+        }
+      ],
+      "aman:priya": [
+        {
+          "from": "aman",
+          "text": "Priya, can you share 2-3 customer photos for the reel?",
+          "time": "2026-03-10T16:00:00",
+          "read": true
+        },
+        {
+          "from": "priya",
+          "text": "Sure! I'll get consent from Hadapsar and Kothrud customers.",
+          "time": "2026-03-10T16:30:00",
+          "read": true
+        }
+      ]
+    },
+    "posts": [
+      {
+        "id": "post1",
+        "user": "onkar",
+        "type": "vision",
+        "txt": "Team, our AIC demo is in 8 days. Let's make sure Surya OS showcases everything we've built. This platform represents our operational excellence. Every feature, every automation, every insight - it tells our story.",
+        "time": "2026-03-12T08:00:00"
+      },
+      {
+        "id": "post2",
+        "user": "dr.desai",
+        "type": "mentor",
+        "txt": "Advice from today's session: Focus on unit economics during AIC pitch. Show them ₹ per lead, ₹ per installation, customer acquisition cost. Numbers speak louder than vision slides.",
+        "time": "2026-03-10T15:00:00"
+      },
+      {
+        "id": "post3",
+        "user": "riya",
+        "type": "intel",
+        "txt": "Market Intel: Competitors are quoting ₹55/watt post-subsidy. We're at ₹52. Our advantage is installation speed (3 days vs their 7-10). Leading with delivery promise in pitches.",
+        "time": "2026-03-09T11:00:00"
+      }
+    ],
+    "n8nFlows": [
+      {
+        "id": "fl1",
+        "name": "Lead to CRM Sync",
+        "tool": "n8n",
+        "trigger": "Google Form Submit",
+        "action": "Create Lead + Send WA",
+        "webhook": "https://n8n.suryaenergy.in/webhook/lead-form",
+        "st": "live",
+        "runs": 47,
+        "lastRun": "2026-03-11T16:30:00"
+      },
+      {
+        "id": "fl2",
+        "name": "Daily Task Digest",
+        "tool": "n8n",
+        "trigger": "Cron 8:00 AM",
+        "action": "WhatsApp Summary",
+        "webhook": null,
+        "st": "live",
+        "runs": 23,
+        "lastRun": "2026-03-12T08:00:00"
+      },
+      {
+        "id": "fl3",
+        "name": "Follow-up Reminder",
+        "tool": "n8n",
+        "trigger": "Daily 9:00 AM",
+        "action": "Check due follow-ups → WA",
+        "webhook": null,
+        "st": "building",
+        "runs": 0,
+        "lastRun": null
+      },
+      {
+        "id": "fl4",
+        "name": "Quote Generator",
+        "tool": "n8n",
+        "trigger": "Manual",
+        "action": "Generate PDF Quote",
+        "webhook": "https://n8n.suryaenergy.in/webhook/quote",
+        "st": "building",
+        "runs": 5,
+        "lastRun": "2026-03-08T14:00:00"
+      },
+      {
+        "id": "fl5",
+        "name": "Instagram Post Scheduler",
+        "tool": "n8n",
+        "trigger": "Notion Update",
+        "action": "Schedule IG Post",
+        "webhook": null,
+        "st": "planned",
+        "runs": 0,
+        "lastRun": null
+      },
+      {
+        "id": "fl6",
+        "name": "Customer Feedback Loop",
+        "tool": "n8n",
+        "trigger": "Installation Complete",
+        "action": "Send Feedback Form",
+        "webhook": null,
+        "st": "planned",
+        "runs": 0,
+        "lastRun": null
+      }
+    ],
+    "notionPages": [
+      {
+        "id": "np1",
+        "title": "Sales Playbook",
+        "url": "https://notion.so/surya/sales-playbook",
+        "cat": "Sales",
+        "notes": "Objection handling, pricing guide, competitor analysis",
+        "updated": "2026-03-10T12:00:00"
+      },
+      {
+        "id": "np2",
+        "title": "AIC Application Draft",
+        "url": "https://notion.so/surya/aic-draft",
+        "cat": "Business",
+        "notes": "Complete grant application with financials",
+        "updated": "2026-03-11T18:00:00"
+      },
+      {
+        "id": "np3",
+        "title": "Product Knowledge Base",
+        "url": "https://notion.so/surya/product-kb",
+        "cat": "Operations",
+        "notes": "Panel specs, inverter details, installation SOP",
+        "updated": "2026-03-09T10:00:00"
+      },
+      {
+        "id": "np4",
+        "title": "Content Calendar",
+        "url": "https://notion.so/surya/content-cal",
+        "cat": "Marketing",
+        "notes": "March 2026 social media calendar",
+        "updated": "2026-03-11T14:00:00"
+      }
+    ],
+    "content": [
+      {
+        "id": "ct1",
+        "title": "PM Surya Ghar Explainer",
+        "plat": "Instagram",
+        "type": "Reel",
+        "st": "Published",
+        "topic": "subsidy",
+        "date": "2026-03-10"
+      },
+      {
+        "id": "ct2",
+        "title": "Bill Savings Calculator",
+        "plat": "Instagram",
+        "type": "Carousel",
+        "st": "Scheduled",
+        "topic": "savings",
+        "date": "2026-03-13"
+      },
+      {
+        "id": "ct3",
+        "title": "Customer Testimonial - Kothrud",
+        "plat": "Instagram",
+        "type": "Reel",
+        "st": "Edit",
+        "topic": "testimonial",
+        "date": "2026-03-15"
+      },
+      {
+        "id": "ct4",
+        "title": "Solar Myths Busted",
+        "plat": "Facebook",
+        "type": "Post",
+        "st": "Script",
+        "topic": "education",
+        "date": "2026-03-17"
+      },
+      {
+        "id": "ct5",
+        "title": "Why Pune is Perfect for Solar",
+        "plat": "Instagram",
+        "type": "Reel",
+        "st": "Idea",
+        "topic": "local",
+        "date": "2026-03-20"
+      }
+    ],
+    "depts": [
+      {
+        "id": "dp1",
+        "name": "CEO Office",
+        "desc": "Strategy, Vision, Investor Relations",
+        "head": "onkar",
+        "emoji": "👑"
+      },
+      {
+        "id": "dp2",
+        "name": "Sales",
+        "desc": "Lead management, Closures, Customer Success",
+        "head": "riya",
+        "emoji": "💰"
+      },
+      {
+        "id": "dp3",
+        "name": "Marketing",
+        "desc": "Content, Social Media, Brand Building",
+        "head": "aman",
+        "emoji": "📢"
+      },
+      {
+        "id": "dp4",
+        "name": "Operations",
+        "desc": "Installations, Vendor Management, Quality",
+        "head": "priya",
+        "emoji": "⚙️"
+      },
+      {
+        "id": "dp5",
+        "name": "Advisory",
+        "desc": "Mentorship, Strategic Guidance",
+        "head": "dr.desai",
+        "emoji": "🎓"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "ses1",
+        "mentor": "dr.desai",
+        "topic": "AIC Pitch Preparation",
+        "date": "2026-03-10",
+        "notes": "Reviewed pitch deck, suggested focusing on unit economics",
+        "status": "done"
+      },
+      {
+        "id": "ses2",
+        "mentor": "dr.desai",
+        "topic": "GTM Strategy Review",
+        "date": "2026-03-15",
+        "notes": "",
+        "status": "upcoming"
+      }
+    ],
+    "aicChecklist": [
+      {
+        "id": "ac1",
+        "item": "Complete pitch deck (15 slides)",
+        "done": true,
+        "cat": "Pitch"
+      },
+      {
+        "id": "ac2",
+        "item": "Financial projections (3 years)",
+        "done": true,
+        "cat": "Pitch"
+      },
+      {
+        "id": "ac3",
+        "item": "Product demo ready",
+        "done": false,
+        "cat": "Demo"
+      },
+      {
+        "id": "ac4",
+        "item": "Customer testimonial video",
+        "done": false,
+        "cat": "Demo"
+      },
+      {
+        "id": "ac5",
+        "item": "Team intro slide",
+        "done": true,
+        "cat": "Pitch"
+      },
+      {
+        "id": "ac6",
+        "item": "Traction metrics dashboard",
+        "done": false,
+        "cat": "Demo"
+      },
+      {
+        "id": "ac7",
+        "item": "Competitive analysis",
+        "done": true,
+        "cat": "Research"
+      },
+      {
+        "id": "ac8",
+        "item": "Grant utilization plan",
+        "done": true,
+        "cat": "Pitch"
+      },
+      {
+        "id": "ac9",
+        "item": "Test run Surya OS",
+        "done": false,
+        "cat": "Demo"
+      },
+      {
+        "id": "ac10",
+        "item": "Backup slides ready",
+        "done": false,
+        "cat": "Pitch"
+      },
+      {
+        "id": "ac11",
+        "item": "Investor Q&A prep",
+        "done": false,
+        "cat": "Prep"
+      },
+      {
+        "id": "ac12",
+        "item": "Final rehearsal",
+        "done": false,
+        "cat": "Prep"
+      }
+    ],
+    "log": [
+      {
+        "user": "onkar",
+        "action": "lead_add",
+        "detail": "Added lead: yash ",
+        "time": "2026-03-18T01:17:22.131Z"
+      },
+      {
+        "user": "onkar",
+        "action": "login",
+        "detail": "Logged in",
+        "time": "2026-03-18T01:16:44.266Z"
+      },
+      {
+        "user": "riya",
+        "action": "login",
+        "detail": "Logged in",
+        "time": "2026-03-18T00:19:21.418Z"
+      },
+      {
+        "user": "onkar",
+        "action": "login",
+        "detail": "Logged in from Pune",
+        "time": "2026-03-11T09:00:00"
+      },
+      {
+        "user": "riya",
+        "action": "lead_add",
+        "detail": "Added lead: Vikrant Shah (Hinjewadi)",
+        "time": "2026-03-11T10:30:00"
+      },
+      {
+        "user": "aman",
+        "action": "task_done",
+        "detail": "Completed: Create Instagram content calendar",
+        "time": "2026-03-11T14:00:00"
+      },
+      {
+        "user": "onkar",
+        "action": "idea_submit",
+        "detail": "Submitted: Community Solar Co-op Model",
+        "time": "2026-03-11T11:00:00"
+      }
+    ],
+    "leadScores": {}
+  },
+  "updatedAt": "2026-03-18T01:17:29.657Z",
+  "version": 1
+}

@@ -71,10 +71,13 @@
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 18.2.0 with Hooks
+- **Backend**: Node.js + Express API
 - **Build Tool**: Vite 5.4.21
 - **Icons**: Lucide React
 - **Styling**: Custom CSS with CSS Variables
-- **Architecture**: Single-file JSX (~6,700 lines)
+- **Database**: Supabase (PostgreSQL)
+- **Fallback Persistence**: Local JSON storage (`server/data/state.json`) when Supabase env is not configured
+- **Architecture**: Full-stack (React SPA + REST API)
 
 ---
 
@@ -96,11 +99,50 @@ cd surya-os
 # Install dependencies
 npm install
 
-# Start development server
+# Create environment file
+cp .env.example .env
+
+# Add your Supabase URL + service role key in .env
+
+# Run SQL in Supabase SQL Editor
+# File: supabase/schema.sql
+
+# Start full-stack development (frontend + backend)
+npm run dev:full
+
+# Or run individually
+npm run server
 npm run dev
 ```
 
 The app will be available at `http://localhost:3000`
+
+Backend API runs at `http://localhost:4000` with:
+- `GET /api/health`
+- `GET /api/state`
+- `PUT /api/state`
+
+### Supabase Setup
+
+1. Create a new Supabase project.
+2. Open SQL Editor and run [supabase/schema.sql](supabase/schema.sql).
+3. Copy values from `.env.example` into `.env` and set:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+4. Start the app with `npm run dev:full`.
+
+When Supabase is configured, API persistence mode is `supabase`.
+If not configured, API falls back to local file storage.
+
+### Production Run
+
+```bash
+# Build frontend assets
+npm run build
+
+# Start backend + serve built frontend
+npm start
+```
 
 ### Default Login Credentials
 
@@ -122,7 +164,7 @@ The app will be available at `http://localhost:3000`
 To accelerate India's transition to sustainable energy through innovative solar solutions and smart technology.
 
 ### Our Vision
-A future where clean, renewable energy powers every home and business.
+A future where clean, renewable energy powers every home and business. p2p engry traing and community solar
 
 ---
 
