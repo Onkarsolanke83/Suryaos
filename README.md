@@ -81,6 +81,45 @@
 
 ---
 
+## 🔄 Working Flowchart
+
+```mermaid
+flowchart TD
+  A[User Opens App] --> B{Saved Session Exists?}
+  B -->|Yes| C[Restore User + Last Page]
+  B -->|No| D[Show Login Screen]
+
+  D --> E[Login Validation]
+  E -->|Success| F[Set User Online + Start Session]
+  E -->|Fail| D
+
+  C --> G[Hydrate State from API]
+  F --> G
+
+  G --> H[Render Module Pages
+Home, CRM, Tasks, Projects, Team Pulse]
+  H --> I[User Creates/Updates Data]
+
+  I --> J[Debounced Save to PUT /api/state]
+  J --> K{Persistence Mode}
+  K -->|Supabase| L[Write app_state + Normalized Mirror]
+  K -->|Fallback| M[Write server/data/state.json]
+
+  L --> N[Broadcast SSE state_updated]
+  M --> N
+  N --> O[Other Clients Pull Latest State]
+  O --> H
+
+  H --> P[Periodic Poll /api/state]
+  P --> H
+
+  H --> Q[Logout]
+  Q --> R[Set User Offline + End Session]
+  R --> S[Clear Local Session Keys]
+```
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
