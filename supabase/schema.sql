@@ -6,6 +6,12 @@ create table if not exists public.app_state (
   version integer not null default 1
 );
 
+create table if not exists public.user_sessions (
+  user_id text primary key,
+  last_page text not null,
+  updated_at timestamptz not null default now()
+);
+
 -- Seed a singleton row used by the app API
 insert into public.app_state (id, state, updated_at, version)
 values ('global', null, now(), 1)

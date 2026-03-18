@@ -899,6 +899,24 @@ const ACTIVE_PAGE_KEY = 'suryaos.activePage';
 const PRESENCE_PING_MS = 15000;
 const PRESENCE_STALE_MS = 5 * 60 * 1000;
 
+function canAccessPageForUser(pageName, username, usersMap) {
+  if (!username) return false;
+  const role = usersMap?.[username]?.role;
+  const mentor = usersMap?.[username]?.isMentor;
+
+  const ceoOnlyPages = ['admin', 'people', 'departments', 'ceo-board', 'pulse'];
+
+  if (mentor) {
+    return ['home', 'strategy', 'mentors'].includes(pageName);
+  }
+
+  if (ceoOnlyPages.includes(pageName)) {
+    return role === 'owner' || role === 'admin';
+  }
+
+  return true;
+}
+
 function _encLegacy(s) {
   if (!s) return '';
   let result = '';
@@ -1645,9 +1663,11 @@ export default function SuryaOS() {
   const [aiLoading, setAiLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const saveTimerRef = useRef(null);
+  const sessionSaveTimerRef = useRef(null);
   const lastServerUpdatedAtRef = useRef(null);
   const suppressNextSaveRef = useRef(false);
   const lastActivityPingRef = useRef(0);
+  const restoredRemoteSessionForRef = useRef(null);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -1796,6 +1816,36 @@ export default function SuryaOS() {
       console.error('Failed to pull latest app state:', err);
     }
   }, [applyRemoteState]);
+
+  const fetchUserSession = useCallback(async (userId) => {
+    if (!userId) return null;
+
+    try {
+      const res = await fetch(`/api/session/${encodeURIComponent(userId)}`);
+      if (!res.ok) return null;
+      const payload = await res.json();
+      return payload?.session || null;
+    } catch (err) {
+      console.error('Failed to fetch user session:', err);
+      return null;
+    }
+  }, []);
+
+  const persistUserSession = useCallback(async (userId, nextPage) => {
+    if (!userId || !nextPage) return false;
+
+    try {
+      const res = await fetch(`/api/session/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: nextPage })
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Failed to persist user session:', err);
+      return false;
+    }
+  }, []);
 
   // Load persisted app state from backend on startup
   useEffect(() => {
@@ -2112,6 +2162,7 @@ export default function SuryaOS() {
     addLog(user, 'logout', `Logged out (Session: ${formatDuration(sessionTime * 1000)})`);
     if (sessionInterval) clearInterval(sessionInterval);
     setUser(null);
+    restoredRemoteSessionForRef.current = null;
     setPage('home');
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ACTIVE_USER_KEY);
@@ -2245,21 +2296,7 @@ export default function SuryaOS() {
   const isCEO = user && (users[user]?.role === 'owner' || users[user]?.role === 'admin');
   const isMentor = user && users[user]?.isMentor;
   const canAccess = useCallback((pageName) => {
-    if (!user) return false;
-    const role = users[user]?.role;
-    const mentor = users[user]?.isMentor;
-    
-    const ceoOnlyPages = ['admin', 'people', 'departments', 'ceo-board', 'pulse'];
-    
-    if (mentor) {
-      return ['home', 'strategy', 'mentors'].includes(pageName);
-    }
-    
-    if (ceoOnlyPages.includes(pageName)) {
-      return role === 'owner' || role === 'admin';
-    }
-    
-    return true;
+    return canAccessPageForUser(pageName, user, users);
   }, [user, users]);
 
   // Persist session identity so refresh keeps user logged in.
@@ -2272,6 +2309,33 @@ export default function SuryaOS() {
     }
   }, [user]);
 
+  // Restore latest page from backend for this user once per login session.
+  useEffect(() => {
+    if (!user || !isHydrated) return;
+    if (restoredRemoteSessionForRef.current === user) return;
+
+    let cancelled = false;
+
+    const restorePage = async () => {
+      const remoteSession = await fetchUserSession(user);
+      if (cancelled) return;
+
+      restoredRemoteSessionForRef.current = user;
+
+      const remotePage = remoteSession?.page;
+      if (!remotePage) return;
+      if (!canAccessPageForUser(remotePage, user, users)) return;
+
+      setPage((current) => (current === remotePage ? current : remotePage));
+    };
+
+    restorePage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, users, isHydrated, fetchUserSession]);
+
   // Persist last page for logged-in user and recover on refresh.
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2280,6 +2344,27 @@ export default function SuryaOS() {
     }
   }, [user, page]);
 
+  // Persist page per user to backend so session can continue on another device.
+  useEffect(() => {
+    if (!user || !isHydrated) return;
+
+    if (sessionSaveTimerRef.current) {
+      clearTimeout(sessionSaveTimerRef.current);
+    }
+
+    sessionSaveTimerRef.current = setTimeout(() => {
+      persistUserSession(user, page);
+      sessionSaveTimerRef.current = null;
+    }, 600);
+
+    return () => {
+      if (sessionSaveTimerRef.current) {
+        clearTimeout(sessionSaveTimerRef.current);
+        sessionSaveTimerRef.current = null;
+      }
+    };
+  }, [user, page, isHydrated, persistUserSession]);
+
   // Validate restored session and page after hydration/user updates.
   useEffect(() => {
     if (!user) return;
@@ -2287,6 +2372,7 @@ export default function SuryaOS() {
     const restoredUser = users[user];
     if (!restoredUser || restoredUser.active === false) {
       setUser(null);
+      restoredRemoteSessionForRef.current = null;
       setPage('home');
       if (typeof window !== 'undefined') {
         localStorage.removeItem(ACTIVE_USER_KEY);

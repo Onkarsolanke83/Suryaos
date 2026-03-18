@@ -13,6 +13,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const STATE_PATH = path.join(DATA_DIR, 'state.json');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const DEFAULT_PAYLOAD = { state: null, updatedAt: null, version: 1 };
+const USER_SESSION_STATE_KEY = '__userSessions';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -173,6 +174,103 @@ async function writeState(payload) {
     return;
   }
   await writeStateToSupabase(payload);
+}
+
+function normalizeUserId(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().toLowerCase();
+}
+
+function parseSessionPayload(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const page = typeof raw.page === 'string' ? raw.page.trim() : '';
+  const updatedAt = safeIso(raw.updatedAt) || new Date().toISOString();
+
+  if (!page) return null;
+
+  return {
+    page,
+    updatedAt
+  };
+}
+
+async function readUserSessionFromState(userId) {
+  const payload = await readState();
+  const state = payload?.state && typeof payload.state === 'object' ? payload.state : {};
+  const sessions = state[USER_SESSION_STATE_KEY] && typeof state[USER_SESSION_STATE_KEY] === 'object'
+    ? state[USER_SESSION_STATE_KEY]
+    : {};
+  return parseSessionPayload(sessions[userId]) || null;
+}
+
+async function writeUserSessionToState(userId, sessionPayload) {
+  const payload = await readState();
+  const state = payload?.state && typeof payload.state === 'object' ? payload.state : {};
+  const sessions = state[USER_SESSION_STATE_KEY] && typeof state[USER_SESSION_STATE_KEY] === 'object'
+    ? state[USER_SESSION_STATE_KEY]
+    : {};
+
+  const nextState = {
+    ...state,
+    [USER_SESSION_STATE_KEY]: {
+      ...sessions,
+      [userId]: sessionPayload
+    }
+  };
+
+  await writeState({
+    state: nextState,
+    updatedAt: new Date().toISOString(),
+    version: Number.isFinite(payload?.version) ? payload.version : 1
+  });
+}
+
+async function readUserSession(userId) {
+  if (hasSupabase) {
+    try {
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select('user_id, last_page, updated_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!error) {
+        if (!data) return null;
+        return parseSessionPayload({ page: data.last_page, updatedAt: data.updated_at });
+      }
+
+      console.warn(`Supabase user_sessions read failed (${userId}): ${error.message}. Falling back to app_state.`);
+    } catch (err) {
+      console.warn(`Supabase user_sessions read threw (${userId}): ${err.message}. Falling back to app_state.`);
+    }
+  }
+
+  return readUserSessionFromState(userId);
+}
+
+async function writeUserSession(userId, sessionPayload) {
+  if (hasSupabase) {
+    try {
+      const { error } = await supabase
+        .from('user_sessions')
+        .upsert(
+          {
+            user_id: userId,
+            last_page: sessionPayload.page,
+            updated_at: sessionPayload.updatedAt
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (!error) return;
+
+      console.warn(`Supabase user_sessions write failed (${userId}): ${error.message}. Falling back to app_state.`);
+    } catch (err) {
+      console.warn(`Supabase user_sessions write threw (${userId}): ${err.message}. Falling back to app_state.`);
+    }
+  }
+
+  await writeUserSessionToState(userId, sessionPayload);
 }
 
 function broadcastStateUpdate(meta) {
@@ -501,6 +599,45 @@ app.get('/api/state', async (_req, res) => {
       error: err.message,
       hint: 'If using Supabase, run supabase/schema.sql and set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.'
     });
+  }
+});
+
+app.get('/api/session/:userId', async (req, res) => {
+  const userId = normalizeUserId(req.params.userId);
+  if (!userId) {
+    return res.status(400).json({ ok: false, error: 'Invalid user id' });
+  }
+
+  try {
+    const session = await readUserSession(userId);
+    return res.json({ ok: true, userId, session });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.put('/api/session/:userId', async (req, res) => {
+  const userId = normalizeUserId(req.params.userId);
+  const page = typeof req.body?.page === 'string' ? req.body.page.trim() : '';
+
+  if (!userId) {
+    return res.status(400).json({ ok: false, error: 'Invalid user id' });
+  }
+
+  if (!page) {
+    return res.status(400).json({ ok: false, error: 'Missing page' });
+  }
+
+  const sessionPayload = {
+    page,
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    await writeUserSession(userId, sessionPayload);
+    return res.json({ ok: true, userId, session: sessionPayload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
